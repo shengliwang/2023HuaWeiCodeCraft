@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include "logging.h"
+
 bool readUntilOK() {
     char line[1024];
     while (fgets(line, sizeof line, stdin)) {
@@ -13,6 +15,11 @@ bool readUntilOK() {
 }
 
 int main() {
+    if (0 != log_init("./myDemoLog.txt")){
+        return -1;
+    }
+    LOG("log init OK!\n");
+    
     readUntilOK();
     puts("OK");
     fflush(stdout);
@@ -24,7 +31,9 @@ int main() {
         double angleSpeed = 1.5;
         for(int robotId = 0; robotId < 4; robotId++){
             printf("forward %d %d\n", robotId, lineSpeed);
+            LOG("forward %d %d\n", robotId, lineSpeed);
             printf("rotate %d %f\n", robotId, angleSpeed);
+            LOG("rotate %d %f\n", robotId, angleSpeed);
         }
         printf("OK\n", frameID);
         fflush(stdout);

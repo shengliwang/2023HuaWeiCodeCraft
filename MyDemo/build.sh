@@ -12,7 +12,7 @@ mkdir build/
 pushd build/
 
 # 4. cmake and make
-cmake ..
+cmake ../src
 make VERBOSE=1
 
 

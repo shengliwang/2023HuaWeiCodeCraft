@@ -2,7 +2,7 @@
 
 SCRIPT=$(readlink -f "$0")
 BASEDIR=$(dirname "$SCRIPT")
-cd $BASEDIR
+cd $BASEDIR/src
 
 if [ ! -f CMakeLists.txt ]
 then
@@ -11,5 +11,6 @@ then
     exit -1
 fi
 
-rm -f CodeCraft-2023.zip
+rm -f ../CodeCraft-2023.zip
 zip -9 -r CodeCraft-2023.zip *.cpp *.cc *.c *.hpp *.h CMakeLists.txt
+mv  CodeCraft-2023.zip ../
