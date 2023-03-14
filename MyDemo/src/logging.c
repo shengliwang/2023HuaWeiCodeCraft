@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "logging.h"
+#include "public.h"
 
 static FILE * g_logFileDes = NULL;
 
@@ -9,7 +10,7 @@ int log_init(char * logfile){
 #if LOG_ON
     g_logFileDes = fopen(logfile, "w");
     if (NULL == g_logFileDes){
-        return -1;
+        return LOG_RET_ERR;
     }
 #endif
     return 0;

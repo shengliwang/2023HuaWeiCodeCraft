@@ -2,6 +2,7 @@
 #include <stdbool.h>
 
 #include "logging.h"
+#include "map.h"
 
 bool readUntilOK() {
     char line[1024];
@@ -15,11 +16,14 @@ bool readUntilOK() {
 }
 
 int main() {
-    if (0 != log_init("./myDemoLog.txt")){
-        return -1;
+    int ret;
+    if (0 != (ret = log_init("./myDemoLog.txt"))){
+        return ret;
     }
     LOG("log init OK!\n");
-    
+    map_init();
+    map_print_des();
+    return 0;
     readUntilOK();
     puts("OK");
     fflush(stdout);
