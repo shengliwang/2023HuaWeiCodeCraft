@@ -13,7 +13,8 @@ pushd build/
 
 # 4. cmake and make
 cmake ../src
-make VERBOSE=1
+#make VERBOSE=1
+make 
 
 
 # exit build/ direcoty

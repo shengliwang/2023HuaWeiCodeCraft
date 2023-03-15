@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "map.h"
 #include "public.h"
@@ -140,3 +141,7 @@ void map_print_des(void){
     }
 }
 
+
+int map_get_rbt_num(void){
+    return g_rbt_num;
+}

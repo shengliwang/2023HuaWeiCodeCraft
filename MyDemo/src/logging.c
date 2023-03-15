@@ -22,4 +22,5 @@ void log_deinit(void){
 }
 FILE * get_logfile_des(void){
     return g_logFileDes;
+  // return stderr;
 }
