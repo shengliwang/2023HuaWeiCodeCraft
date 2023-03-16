@@ -2,6 +2,9 @@
 
 #include "logging.h"
 #include "public.h"
+#include "config.h"
+
+#if LOG_ON
 
 static FILE * g_logFileDes = NULL;
 
@@ -24,3 +27,5 @@ FILE * get_logfile_des(void){
     return g_logFileDes;
   // return stderr;
 }
+
+#endif

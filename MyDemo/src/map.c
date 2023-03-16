@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include "map.h"
 #include "public.h"
@@ -13,19 +14,6 @@
  */
 static double g_map_width = 0;
 static double g_map_height = 0;
-
-struct working_table{
-    double pos_x;
-    double pos_y;
-    int type; /*type取值为1-9，代表1-9号工作台*/
-    int id; /*编号*/
-};
-
-struct robot{
-    double pos_x;
-    double pos_y;
-    int id; /*机器人编号*/
-};
 
 static struct working_table g_wt[MAX_WORKING_TABLE_NUM];
 static struct robot g_rbt[MAX_ROBOT_NUM];
@@ -144,4 +132,167 @@ void map_print_des(void){
 
 int map_get_rbt_num(void){
     return g_rbt_num;
+}
+
+int map_get_wt_num(void){
+    return g_wt_num;
+}
+
+int map_set_wt_state(int wt_id, int wt_type, 
+    double posX, double posY, int remainPdtFrame, 
+    unsigned int rawMaterialState, unsigned int productState){
+    if (wt_id >= map_get_wt_num()){
+        LOG_ERR("(wt_id >= g_wt_num)");
+        return MAP_RET_ERR;
+    }
+    
+    struct working_table * p = &g_wt[wt_id];
+
+    if (p->type != wt_type || p->pos_x != posX || p->pos_y != posY){
+        LOG_ERR ("(p->type != wt_type || p->pos_x != posX || p->pos_y != posY)");
+        return MAP_RET_ERR;
+    }
+
+    p->remain_product_frame = remainPdtFrame;
+    p->raw_material_state = rawMaterialState;
+    p->product_state = productState;
+}
+
+int map_set_rbt_state(int rbtId,
+                            int inWhichWt,
+                            int carryItmType,
+                            double timeValueFactor,
+                            double collisionValueFactor,
+                            double angleSpeed,
+                            double lineSpeedX, double lineSpeedY,
+                            double direction, 
+                            double posX, double posY){
+    if (rbtId >= map_get_rbt_num()){
+        LOG_ERR("(rbtId >= map_get_rbt_num())");
+        return MAP_RET_ERR;
+    }
+
+    struct robot * p = &g_rbt[rbtId];
+
+    if (inWhichWt >= map_get_wt_num()){
+        LOG_ERR("(inWhichWt >= map_get_wt_num())");
+    }
+    
+    p->in_which_working_table = inWhichWt;
+    p->carry_item_type = carryItmType;
+    p->time_value_factor = timeValueFactor;
+    p->collision_value_factor    = collisionValueFactor;
+    p->angle_speed = angleSpeed;
+    p->line_speed_x = lineSpeedX;
+    p->line_speed_y = lineSpeedY;
+    p->direction = direction;
+    p->pos_x = posX;
+    p->pos_y = posY;
+}
+
+const struct working_table * map_get_wt(void){
+    return g_wt;
+}
+
+const struct robot * map_get_rbt(int i){
+    if (i >= g_rbt_num){
+        LOG_ERR("(i >= g_rbt_num)");
+        return NULL;
+    }
+
+    return &g_rbt[i];
+}
+
+/*检查两个工作台之间可不可以运输货物。*/
+bool map_check_vality_between_node(struct working_table *start,
+                            struct working_table *dest){
+
+
+    /*判断工作台是否有货物*/
+    if(PRODUCT_NONE == start->product_state){
+        return false;
+    }
+    
+    /*工作台4只能接受工作台1,2的货物*/
+    unsigned int state = dest->raw_material_state;
+
+    if (4 == dest->type){
+        if (1 == start->type && !(state & PRODUCT_1_MASK)){
+            return true;
+        } else if (2 == start->type && !(state & PRODUCT_2_MASK)){
+            return true;
+        } else {
+            return false;
+        }
+    /*工作台5只能接受工作台1,3的货物*/
+    } else if (5 == dest->type){
+        if (1 == start->type && !(state & PRODUCT_1_MASK)){
+            return true;
+        } else if (3 == start->type && !(state & PRODUCT_3_MASK)){
+            return true;
+        } else {
+            return false;
+        }
+    } else if (6 == dest->type){
+        if (2 == start->type && !(state & PRODUCT_2_MASK)){
+            return true;
+        } else if (3 == start->type && !(state & PRODUCT_3_MASK)){
+            return true;
+        } else {
+            return false;
+        }
+    } else if (7 == dest->type){
+        if (4 == start->type && !(state & PRODUCT_4_MASK)){
+            return true;
+        } else if (5 == start->type && !(state & PRODUCT_5_MASK)){
+            return true;
+        } else if (6 == start->type && !(state & PRODUCT_6_MASK)){
+            return true;
+        } else {
+            return false;
+        }
+    } else if (8 == dest->type) {
+        if (7 == start->type && !(state & PRODUCT_7_MASK)){
+            return true;
+        } else {
+            return false;
+        }
+    } else if (9 == dest->type) {
+        if (1 == start->type && !(state & PRODUCT_1_MASK)){
+            return true;
+        } else if (2 == start->type && !(state & PRODUCT_2_MASK)){
+            return true;
+        } else if (3 == start->type && !(state & PRODUCT_3_MASK)){
+            return true;
+        } else if (4 == start->type && !(state & PRODUCT_4_MASK)){
+            return true;
+        } else if (5 == start->type && !(state & PRODUCT_5_MASK)){
+            return true;
+        } else if (6 == start->type && !(state & PRODUCT_6_MASK)){
+            return true;
+        } else if (7 == start->type && !(state & PRODUCT_7_MASK)){
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
+bool map_rbt_has_product(int rbtId){
+    if (rbtId >= g_rbt_num){
+        LOG_ERR("(rbtId >= g_rbt_num)");
+        return false;
+    }
+
+    return !!(g_rbt[rbtId].carry_item_type);
+}
+
+int map_get_rbt_in_which_wt(int rbtId){
+    if (rbtId >= g_rbt_num){
+        LOG_ERR("(rbtId >= g_rbt_num)");
+        return ROBOT_IN_NONE_WORKING_TABLE;
+    }
+
+    return g_rbt[rbtId].in_which_working_table;
 }

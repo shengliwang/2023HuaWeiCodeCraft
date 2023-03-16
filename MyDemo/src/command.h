@@ -10,6 +10,8 @@ int command_rbt_buy(int rbt_id);
 int command_rbt_sell(int rbt_id);
 int command_rbt_destroy(int rbt_id);
 
-void command_send(void);
+
+#define command_ok()    printf("OK\n")
+#define command_send()  fflush(stdout)
 
 #endif

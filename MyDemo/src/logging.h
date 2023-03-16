@@ -2,15 +2,13 @@
 #define __MY_LOGGING_H__
 
 #include <stdio.h>
-
-#define LOG_ON 1
-
-int log_init(char * logfile);
-void log_deinit(void);
-FILE * get_logfile_des(void);
+#include "config.h"
 
 
 #if LOG_ON
+int log_init(char * logfile);
+void log_deinit(void);
+FILE * get_logfile_des(void);
 
 /* yello print */
 #define LOG_INFO(fmt, ...) \
@@ -36,6 +34,10 @@ FILE * get_logfile_des(void);
             fflush(get_logfile_des()); \
     }while(0)
 #else
+
+#define log_init() (0)
+#define log_deinit() (0)
+#define get_logfile_des() (0)
 
 #define LOG_INFO(fmt, ...)
 #define LOG_ERR(fmt, ...)

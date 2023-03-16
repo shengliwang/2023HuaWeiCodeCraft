@@ -3,6 +3,11 @@
 
 #include "logging.h"
 #include "map.h"
+#include "command.h"
+#include "config.h"
+#include "algorithm.h"
+#include "algorithm1.h"
+#include "util.h"
 
 bool readUntilOK() {
     char line[1024];
@@ -21,24 +26,27 @@ int main() {
         return ret;
     }
     LOG("log init OK!\n");
-    map_init();
+    if (0!=map_init()){
+        LOG_ERR("map_init failed");
+    }
+
+    algo1_init();
     map_print_des();
-   // return 0;
-    //readUntilOK();
-    puts("OK");
-    fflush(stdout);
-    int frameID;
-    while (scanf("%d", &frameID) != EOF) {
-        readUntilOK();
-        printf("%d\n", frameID);
-        int lineSpeed = 100;
-        double angleSpeed = 0.5;
-        for(int robotId = 0; robotId < 4; robotId++){
-            printf("forward %d %d\n", robotId, lineSpeed);
-            printf("rotate %d %f\n", robotId, angleSpeed);
-        }
-        printf("OK\n", frameID);
-        fflush(stdout);
+    command_ok();
+    command_send();
+
+    
+
+    unsigned int frameID;
+    unsigned int money;
+    while (scanf("%d %d", &frameID, &money) != EOF) {
+        util_time_start();
+        algo1_digest_one_frame(frameID, money);
+        algo1_run();
+        algo1_send_control_frame(frameID);
+        util_time_stop();
+        LOG_INFO("algo1_run using %lf ms\n", util_time_duration());
+
     }
     return 0;
 }

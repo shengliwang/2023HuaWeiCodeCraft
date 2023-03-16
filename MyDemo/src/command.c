@@ -75,8 +75,3 @@ int command_rbt_destroy(int rbt_id){
     printf("destroy %d\n", rbt_id);
     return 0;
 }
-
-void command_send(void){
-    printf("OK\n");
-    fflush(stdout);
-}
