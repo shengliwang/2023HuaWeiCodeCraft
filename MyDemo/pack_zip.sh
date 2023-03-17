@@ -12,5 +12,15 @@ then
 fi
 
 rm -f ../CodeCraft-2023.zip
+
+LOG_ON=`cat config.h | grep LOG_ON | cut -d '(' -f2 | cut -d ')' -f1`
+
+if [ ${LOG_ON} -ne 0 ]; then
+	echo -e "\033[31mLOG is enable, please disable!\033[00m"
+	exit
+fi
+
+
+
 zip -9 -r CodeCraft-2023.zip *.cpp *.cc *.c *.hpp *.h CMakeLists.txt
 mv  CodeCraft-2023.zip ../

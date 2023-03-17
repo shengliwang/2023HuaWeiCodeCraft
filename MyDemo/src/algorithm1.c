@@ -408,8 +408,8 @@ static void algo1_go_point(int rbtId, double x, double y){
     /*距离越近速度越慢,每一帧的间隔是15ms即0.015s*/
     double dist = util_distance(x, y, rbt_x, rbt_y);
 
-    linespeed = (dist > 1.0)? 6.0:1.0;
-    linespeed = MAX_ROBOT_FORWARD_SPEED;
+    linespeed = (dist > 2.0)? 
+        MAX_ROBOT_FORWARD_SPEED : MAX_ROBOT_FORWARD_SPEED/2;
    // LOG_GREEN("rbt%d, distance to dest %f, set speed to %.3f\n",rbtId, dist, linespeed);
     
     command_rbt_forward(rbtId, linespeed);
