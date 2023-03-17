@@ -5,6 +5,7 @@
 
 #include "config.h"
 #include "logging.h"
+#include "public.h"
 
 #if TIMER_ON
 static clock_t g_start_time;
@@ -96,7 +97,7 @@ int gen_vector_from_direction(
                         double *x, double *y,
                         double direction){
     *x = 1;
-    *y = tan(dirction);
+    *y = tan(direction);
     
     if (isnormal(*y)){
         return 0;
@@ -107,7 +108,7 @@ int gen_vector_from_direction(
 }
 
 /*根据两个点生成向量A->B,其中A(Ax, Ay), B(Bx, By)*/
-void gen_vector_from_point(double * x, double * y
+void gen_vector_from_point(double * x, double * y,
                             double Ax, double Ay,
                           double Bx, double By){
     *x = Bx - Ax;
