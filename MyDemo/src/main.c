@@ -27,7 +27,7 @@ int main() {
     }
     LOG("log init OK!\n");
     if (0!=map_init()){
-        LOG_ERR("map_init failed");
+        LOG_RED("map_init failed");
     }
 
     algo1_init();
@@ -42,10 +42,10 @@ int main() {
     while (scanf("%d %d", &frameID, &money) != EOF) {
         util_time_start();
         algo1_digest_one_frame(frameID, money);
-        algo1_run();
+        algo1_run(frameID);
         algo1_send_control_frame(frameID);
         util_time_stop();
-        LOG_INFO("algo1_run using %lf ms\n", util_time_duration());
+        //LOG_INFO("algo1_run using %lf ms\n", util_time_duration());
 
     }
     return 0;

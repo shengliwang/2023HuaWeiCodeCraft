@@ -62,7 +62,7 @@ static void dig_line(char * line, double height){
                 break;
             }
             default:{
-                LOG_ERR("digest err char [%d]\n", *line);
+                LOG_RED("digest err char [%d]\n", *line);
                 break;
             }
         }
@@ -115,14 +115,14 @@ int map_init(void){
 }
 
 void map_print_des(void){
-    LOG_INFO("map width: %f, map height: %f\n",g_map_width, g_map_height);
-    LOG_INFO("working table list[num=%d]:\n", g_wt_num);
+    LOG_YELLOW("map width: %f, map height: %f\n",g_map_width, g_map_height);
+    LOG_YELLOW("working table list[num=%d]:\n", g_wt_num);
     for (int i = 0; i < g_wt_num; ++i){
         LOG("id[%d], type[%d], pos(%f, %f)\n",
             g_wt[i].id, g_wt[i].type, g_wt[i].pos_x, g_wt[i].pos_y);
     }
 
-    LOG_INFO("robot list[num=%d]:\n", g_rbt_num);
+    LOG_YELLOW("robot list[num=%d]:\n", g_rbt_num);
     for (int i = 0; i < g_rbt_num; ++i){
         LOG("id[%d], pos(%f, %f)\n",
             g_rbt[i].id, g_rbt[i].pos_x, g_rbt[i].pos_y);
@@ -142,14 +142,14 @@ int map_set_wt_state(int wt_id, int wt_type,
     double posX, double posY, int remainPdtFrame, 
     unsigned int rawMaterialState, unsigned int productState){
     if (wt_id >= map_get_wt_num()){
-        LOG_ERR("(wt_id >= g_wt_num)");
+        LOG_RED("(wt_id >= g_wt_num)");
         return MAP_RET_ERR;
     }
     
     struct working_table * p = &g_wt[wt_id];
 
     if (p->type != wt_type || p->pos_x != posX || p->pos_y != posY){
-        LOG_ERR ("(p->type != wt_type || p->pos_x != posX || p->pos_y != posY)");
+        LOG_RED ("(p->type != wt_type || p->pos_x != posX || p->pos_y != posY)");
         return MAP_RET_ERR;
     }
 
@@ -168,14 +168,14 @@ int map_set_rbt_state(int rbtId,
                             double direction, 
                             double posX, double posY){
     if (rbtId >= map_get_rbt_num()){
-        LOG_ERR("(rbtId >= map_get_rbt_num())");
+        LOG_RED("(rbtId >= map_get_rbt_num())");
         return MAP_RET_ERR;
     }
 
     struct robot * p = &g_rbt[rbtId];
 
     if (inWhichWt >= map_get_wt_num()){
-        LOG_ERR("(inWhichWt >= map_get_wt_num())");
+        LOG_RED("(inWhichWt >= map_get_wt_num())");
     }
     
     p->in_which_working_table = inWhichWt;
@@ -196,7 +196,7 @@ const struct working_table * map_get_wt(void){
 
 const struct robot * map_get_rbt(int i){
     if (i >= g_rbt_num){
-        LOG_ERR("(i >= g_rbt_num)");
+        LOG_RED("(i >= g_rbt_num)");
         return NULL;
     }
 
@@ -281,7 +281,7 @@ bool map_check_vality_between_node(struct working_table *start,
 
 bool map_rbt_has_product(int rbtId){
     if (rbtId >= g_rbt_num){
-        LOG_ERR("(rbtId >= g_rbt_num)");
+        LOG_RED("(rbtId >= g_rbt_num)");
         return false;
     }
 
@@ -290,7 +290,7 @@ bool map_rbt_has_product(int rbtId){
 
 int map_get_rbt_in_which_wt(int rbtId){
     if (rbtId >= g_rbt_num){
-        LOG_ERR("(rbtId >= g_rbt_num)");
+        LOG_RED("(rbtId >= g_rbt_num)");
         return ROBOT_IN_NONE_WORKING_TABLE;
     }
 

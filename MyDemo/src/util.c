@@ -28,7 +28,7 @@ double my_timer_duration(void){
 
 
 double util_distance(double pos1_x, double pos1_y, double pos2_x, double pos2_y){
-    return //sqrt
+    return sqrt
             ( (pos1_x - pos2_x)*(pos1_x - pos2_x) + 
               (pos1_y - pos2_y)*(pos1_y - pos2_y) );
 }
@@ -40,11 +40,11 @@ double util_angle_on_direction(double x, double y, double m, double n, double di
     double tanTheta = tan(direction);
 
     if (-PI/2 == direction){
-        LOG_ERR("warning:(-PI/2 == direction)");
+        LOG_RED("warning:(-PI/2 == direction)");
         a = x;
         b = y - 1;
     } else if (PI/2 == direction){
-        LOG_ERR("warning:(PI/2 == direction)");
+        LOG_RED("warning:(PI/2 == direction)");
         a = x;
         b = y + 1;
     } else if (PI == direction || -PI == direction){
@@ -71,7 +71,7 @@ double util_angle_on_direction(double x, double y, double m, double n, double di
                 b = y + tanTheta;
             }
         } else {
-            LOG_ERR("tanTheta == 0\n");
+            LOG_RED("tanTheta == 0\n");
         }
     }
 

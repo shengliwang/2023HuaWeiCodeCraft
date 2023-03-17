@@ -4,8 +4,6 @@
 #include <math.h>
 #include <string.h>
 
-
-
 #include "algorithm1.h"
 #include "public.h"
 #include "logging.h"
@@ -20,9 +18,6 @@
 在执行一个任务的时候，不能中断去执行其他任务。当前任务必须执行完，才能重新计算。
 */
 
-
-
-
 #if ALGO1_EN
 /*处理判题器发来的一帧数据*/
 int algo1_digest_one_frame(unsigned int frameid, unsigned int money){
@@ -30,13 +25,14 @@ int algo1_digest_one_frame(unsigned int frameid, unsigned int money){
 
     int wt_num = 0;
     if (scanf("%d", &wt_num) < 0){
-        LOG_ERR("error in scanf\n");
+        LOG_RED("error in scanf\n");
     }
 
     if (wt_num != map_get_wt_num()){
-        LOG_ERR("wt_num != map_get_wt_num()");
+        LOG_RED("wt_num != map_get_wt_num()");
     }
 
+  //  LOG("read working table from frame %d:\n", frameid);
     /*读取每一帧工作台的信息*/
     for (int i = 0; i < wt_num; ++i){
         int wtType;
@@ -49,7 +45,12 @@ int algo1_digest_one_frame(unsigned int frameid, unsigned int money){
                                     &rawMaterialState, &productState);
         map_set_wt_state(i, wtType, posX, posY, 
                             remainPdtFrame, rawMaterialState, productState);
+#if 0
+        LOG_INFO("[%d]%d %lf %lf %d 0x%x %d\n", i, wtType, posX, posY, remainPdtFrame, 
+                                    &rawMaterialState, productState);
+#endif
     }
+  //  LOG("read robot info from frame %d:\n", frameid);
 
     /*读取每一帧的机器人信息*/
     for (int i = 0; i < map_get_rbt_num(); ++i){
@@ -64,13 +65,20 @@ int algo1_digest_one_frame(unsigned int frameid, unsigned int money){
         
         scanf("%d %d %lf %lf %lf %lf %lf %lf %lf %lf",
                         &inWhichWt, &carryItmType,
-                        &collisionValueFactor, &collisionValueFactor, 
+                        &timeValueFactor, &collisionValueFactor, 
                         &angleSpeed, &lineSpeedX, &lineSpeedY,&direction,
                         &posX, &posY);
         map_set_rbt_state(i, inWhichWt, carryItmType,
                         timeValueFactor, collisionValueFactor,
                         angleSpeed, lineSpeedX, lineSpeedY,direction,
                         posX, posY);
+#if 0
+        LOG_INFO("%d %d %lf %lf %lf %lf %lf %lf %lf %lf\n", 
+                    inWhichWt, carryItmType, 
+                    timeValueFactor, collisionValueFactor,
+                    angleSpeed, lineSpeedX, lineSpeedY, direction, 
+                    posX, posY);
+#endif
     }
 
     /*剩余数据*/
@@ -81,7 +89,7 @@ int algo1_digest_one_frame(unsigned int frameid, unsigned int money){
         //LOG_INFO("warning: recv[%s]", line);
     }
     
-    LOG_ERR("ret err!\n");
+    LOG_RED("ret err!\n");
     return ALGO1_RET_ERR;
 }
 
@@ -178,7 +186,8 @@ struct task_edge{
 static struct task_edge g_task_edge[MAX_ROBOT_NUM] = {0};
 
 void algo1_init(void){
-    memset(g_task_edge, 0, sizeof g_task_edge);
+    memset(g_task_edge, 0, sizeof(g_task_edge));
+
     for (int i = 0; i < MAX_ROBOT_NUM; ++i){
         g_task_edge[i].complete_rate = 1;
     }
@@ -189,7 +198,6 @@ void algo1_init(void){
 static struct task_edge * algo1_get_min_priority_done_task(void){
     int rbt_num = map_get_rbt_num();
 
-    
     int minIdx = -1;
     int minValue = 0;
 
@@ -199,6 +207,7 @@ static struct task_edge * algo1_get_min_priority_done_task(void){
     for (i = 0; i < rbt_num; ++i){
         if (1 == g_task_edge[i].complete_rate ||
             0 == g_task_edge[i].complete_rate){
+
             minIdx = i;
             minValue = g_task_edge[i].priority;
             break;
@@ -229,7 +238,7 @@ int algo1_get_available_rbt(struct task_edge * task){
     bool availableFlag;
     for (int i = 0; i < map_get_rbt_num(); ++i){
         availableFlag = 1;
-        for (int taskId = 0; taskId < MAX_ROBOT_NUM; ++i){
+        for (int taskId = 0; taskId < MAX_ROBOT_NUM; ++taskId){
             if (g_task_edge[taskId].priority > 0
                 && g_task_edge[taskId].bind_robot_id == i){
                 availableFlag = 0;
@@ -241,20 +250,21 @@ int algo1_get_available_rbt(struct task_edge * task){
         }
     }
 
-    LOG_ERR("not find available robot!\n");
+    LOG_RED("not find available robot!\n");
     return 0xffffff; /*会导致段错误，便于调试*/
 //
 }
 
 
-int algo1_run(void){
+int algo1_run(int frameId){
     static struct working_table levelWtNode[4][MAX_WORKING_TABLE_NUM];
-
     int levelWtNodeNum[4];
 
     for (int level = LEVEL_1; level <= LEVEL_4; ++level){
         levelWtNodeNum[level] = 
                 algo1_get_level_wt_node(levelWtNode[level], level);
+      //  LOG_INFO("fram%d, level %d, node num %d\n",
+        //            frameId, level, levelWtNodeNum[level]);
     }
 
     int taskAvailableFlag = 1;
@@ -265,16 +275,18 @@ int algo1_run(void){
         struct working_table * p2 = levelWtNode[level+1];
         int p1_num = levelWtNodeNum[level];
         int p2_num = levelWtNodeNum[level+1];
-
+        
         /*从p1节点运输货物到p2的节点上*/
         for (int i = 0; i < p1_num; ++i){
             for (int j = 0; j < p2_num; ++j){
                 if (map_check_vality_between_node(p1+i, p2+j)){
                     struct task_edge * targetTask = algo1_get_min_priority_done_task();
                     if (NULL == targetTask){
+                        LOG_RED("frame%d, NULL ==  targetTask\n", frameId);
                         taskAvailableFlag = 0;
                         break;
                     }
+                    
                     targetTask->start_wt_id = (p1+i)->id;
                     targetTask->start_x = (p1+i)->pos_x;
                     targetTask->start_y = (p1+i)->pos_y;
@@ -285,14 +297,16 @@ int algo1_run(void){
                     targetTask->complete_rate = 0;
                     targetTask->priority = priority;
                     targetTask->bind_robot_id = -1;
+                    break;  /*当前的节点已经确定目的地了，后面不在分配
+                            todo： 需要考虑后续更高的优先级。。。*/
                 }
             }
-            if(0 != taskAvailableFlag){
+            if(0 == taskAvailableFlag){
                 break;
             }
         }
 
-        if (0 != taskAvailableFlag){
+        if (0 == taskAvailableFlag){
             break;
         }
         ++priority;
@@ -301,27 +315,31 @@ int algo1_run(void){
     /*给未分配机器人的任务分配机器人*/
     for (int i = 0; i < MAX_ROBOT_NUM; ++i){
         struct task_edge *p = &g_task_edge[i];
-
+        
         if (p->priority > 0 && 
                 p->bind_robot_id == -1){
+
             p->bind_robot_id = algo1_get_available_rbt(p);
             p->robot_init_x = map_get_rbt(i)->pos_x;
             p->robot_init_y = map_get_rbt(i)->pos_y;
-
 
             double x1 = p->robot_init_x;
             double y1 = p->robot_init_y;
 
             double x2 = p->start_x;
             double y2 = p->start_y;
-
+            
             double x3 = p->dest_x;
             double y3 = p->dest_y;
             p->total_distance =
                     util_distance(x1, y1, x2, y2) +
                     util_distance(x2, y2, x3, y3);
+
+            if (0 == p->total_distance){
+                LOG_RED("error: p->total_distance = %f\n", p->total_distance);
+            }
             p->done_distance = 0;
-           }
+       }
     }
 
     /*对于优先级不等于0的任务，计算完成度所需要的信息*/
@@ -341,9 +359,13 @@ int algo1_run(void){
                     util_distance(rbt->pos_x, rbt->pos_y,
                                 p->robot_init_x, p->robot_init_y);
             }
-        }
 
-        p->complete_rate = p->done_distance / p->total_distance;
+            if (0 == p->total_distance){
+                LOG_RED("error: p->total_distance = %f\n", p->total_distance);
+                p->total_distance = 100;
+            }
+            p->complete_rate = p->done_distance / p->total_distance;
+        }
     }
 }
 
@@ -358,8 +380,17 @@ static void algo1_go_point(int rbtId, double x, double y){
 
     double angle = util_angle_on_direction(rbt_x, rbt_y, x, y, rbt_direction);
 
-    command_rbt_rotate_clockwise(rbtId, angle/2);
-    command_rbt_forward(rbtId, MAX_ROBOT_FORWARD_SPEED);
+    command_rbt_rotate_clockwise(rbtId, angle);
+
+    double linespeed = 0.1;
+
+    /*距离越近速度越慢,每一帧的间隔是15ms即0.015s*/
+    double dist = util_distance(x, y, rbt_x, rbt_y);
+
+    linespeed = dist / 1.0;
+    LOG_GREEN("rbt%d, distance to dest %f, set speed to %.3f\n",rbtId, dist, linespeed);
+    
+    command_rbt_forward(rbtId, linespeed);
 }
 
 /*控制机器人运动*/
@@ -371,7 +402,9 @@ int algo1_send_control_frame(int frameID){
     /*处理任务边*/
     for (int i = 0; i < MAX_ROBOT_NUM; ++i){
         struct task_edge * task = &g_task_edge[i];
+        
         if (task->priority <= 0){
+            LOG_RED("continue\n");
             continue;
         }
 
