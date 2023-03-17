@@ -91,4 +91,47 @@ double util_angle_on_direction(double x, double y, double m, double n, double di
     /*todo到网上搜搜PI有没有C语言标准宏定义*/
 }
 
+/*根据方向direction生成向量,方向范围[-Pi, Pi]*/
+int gen_vector_from_direction(
+                        double *x, double *y,
+                        double direction){
+    *x = 1;
+    *y = tan(dirction);
+    
+    if (isnormal(*y)){
+        return 0;
+    } else {
+        LOG_RED("isnormal(*y) not ok!\n");
+        return UTIL_RET_ERR;
+    }
+}
+
+/*根据两个点生成向量A->B,其中A(Ax, Ay), B(Bx, By)*/
+void gen_vector_from_point(double * x, double * y
+                            double Ax, double Ay,
+                          double Bx, double By){
+    *x = Bx - Ax;
+    *y = By - Ay;
+}
+
+/*判断两个向量叉乘的结果向量的方向
+参考：https://zhuanlan.zhihu.com/p/148780358
+向量A, B表示：(Ax, Ay), 
+            (Bx, By)
+   右手螺旋定则：右手四指方向从a转向b，大拇指即得到c方向
+   
+   用于判断两个向量中，A向量向B向量靠近，是逆时针还是顺时针
+   转动走过的弧度少。
+   
+   flag = Ax * By - Ay * Bx
+   flag大于0，A逆时针转动到B
+   flag<0, A顺时针转动到B
+   flag==0,代表 A，B两个向量平行(可能方向是反的)，此时怎么转动都行
+
+*/
+double util_c_dirction(double Ax, double Ay, 
+                       double Bx, double By){
+    return (Ax*By - Ay*Bx);
+}
+
 /*todo: 把坐标的定义写到这里来*/
