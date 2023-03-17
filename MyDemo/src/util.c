@@ -135,4 +135,19 @@ double util_c_dirction(double Ax, double Ay,
     return (Ax*By - Ay*Bx);
 }
 
+
+double util_vector_angle(double Ax, double Ay,
+                            double Bx, double By){
+    double cosValue = (Ax*Bx + Ay*By) /
+        (util_distance(Ax, Ay, 0, 0)*util_distance(Bx, By, 0, 0));
+    double theta = acos(cosValue);
+
+    if (isnormal(theta)){
+        return theta;
+    } else {
+        LOG_RED("(isnormal(theta)) is not ok!\n");
+        return 0;
+    }
+}
+
 /*todo: 把坐标的定义写到这里来*/
