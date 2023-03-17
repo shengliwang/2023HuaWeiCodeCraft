@@ -25,6 +25,18 @@ double my_timer_duration(void);
 
 double util_distance(double pos1_x, double pos1_y,
                          double pos2_x, double pos2_y);
-double util_angle_on_direction(double x, double y,
-                            double m, double n, double direction);
+
+int util_gen_vector_from_direction(
+                        double *x, double *y,
+                        double direction);
+
+void util_gen_vector_from_point(double * x, double * y,
+                            double Ax, double Ay,
+                          double Bx, double By);
+
+double util_c_dirction(double Ax, double Ay, 
+                       double Bx, double By);
+
+double util_vector_angle(double Ax, double Ay,
+                            double Bx, double By);
 #endif

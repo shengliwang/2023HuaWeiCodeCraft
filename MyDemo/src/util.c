@@ -34,6 +34,7 @@ double util_distance(double pos1_x, double pos1_y, double pos2_x, double pos2_y)
               (pos1_y - pos2_y)*(pos1_y - pos2_y) );
 }
 
+#if 0
 /*计算(x,y)和(m,n)连线与direction之间的夹角(-PI, PI)之间的*/
 double util_angle_on_direction(double x, double y, double m, double n, double direction){
     /*direction 的向量通过点(x,y)*/
@@ -91,24 +92,32 @@ double util_angle_on_direction(double x, double y, double m, double n, double di
     
     /*todo到网上搜搜PI有没有C语言标准宏定义*/
 }
-
+#endif
 /*根据方向direction生成向量,方向范围[-Pi, Pi]*/
-int gen_vector_from_direction(
+int util_gen_vector_from_direction(
                         double *x, double *y,
                         double direction){
     *x = 1;
-    *y = tan(direction);
+    *y = tanl(direction);
     
-    if (isnormal(*y)){
-        return 0;
-    } else {
-        LOG_RED("isnormal(*y) not ok!\n");
-        return UTIL_RET_ERR;
+    if (isnan(*y) || isinf(*y)){
+        LOG_RED("(isnan(*y) || isinf(*y)): *y=(%f), direction=(%f)!\n", *y, direction);
+       // return UTIL_RET_ERR;
     }
+
+    if (direction <= -PI/2){
+        *x = -(*x);
+        *y = -(*y);
+    } else if (direction >= PI/2){
+        *x = -(*x);
+        *y = -(*y);
+    }
+    
+    return 0;
 }
 
 /*根据两个点生成向量A->B,其中A(Ax, Ay), B(Bx, By)*/
-void gen_vector_from_point(double * x, double * y,
+void util_gen_vector_from_point(double * x, double * y,
                             double Ax, double Ay,
                           double Bx, double By){
     *x = Bx - Ax;
@@ -135,7 +144,7 @@ double util_c_dirction(double Ax, double Ay,
     return (Ax*By - Ay*Bx);
 }
 
-
+/*返回值的范围为[0, pi]，跟acos的返回值范围保持一致*/
 double util_vector_angle(double Ax, double Ay,
                             double Bx, double By){
     double cosValue = (Ax*Bx + Ay*By) /

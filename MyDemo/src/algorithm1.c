@@ -378,23 +378,39 @@ static void algo1_go_point(int rbtId, double x, double y){
 
     double rbt_direction = rbt->direction;
 
-    /*生成两个向量A, B, A为robot面向，
+    /*生成两个向量A, B, A为表示robot朝向的向量，
         B为 robot 指向终点的向量 */
     double Ax, Ay, Bx, By;
 
-    
+    util_gen_vector_from_direction(&Ax, &Ay, rbt_direction);
+    util_gen_vector_from_point(&Bx, &By,
+                    rbt_x, rbt_y,
+                    x, y);
 
-    double angle = util_angle_on_direction(rbt_x, rbt_y, x, y, rbt_direction);
+    /*计算两个向量之间的夹角*/
+    double angle = util_vector_angle(Ax, Ay, Bx, By);
 
-    command_rbt_rotate_clockwise(rbtId, angle);
+    double flag = util_c_dirction(Ax, Ay, Bx, By);
+
+    //LOG_GREEN("rbt%d: A:(%f,%f), B:(%f,%f), angle:%f, c_direction:%f\n",
+    //rbtId, Ax, Ay, Bx, By, angle, flag);
+
+    double angleSpeed = angle/0.015;
+
+    if (flag >=0 ){
+        command_rbt_rotate_anticlockwise(rbtId, angleSpeed);
+    } else {
+        command_rbt_rotate_clockwise(rbtId, angleSpeed);
+    }
 
     double linespeed = 0.1;
 
     /*距离越近速度越慢,每一帧的间隔是15ms即0.015s*/
     double dist = util_distance(x, y, rbt_x, rbt_y);
 
-    linespeed = dist / 1.0;
-    LOG_GREEN("rbt%d, distance to dest %f, set speed to %.3f\n",rbtId, dist, linespeed);
+    linespeed = (dist > 1.0)? 6.0:1.0;
+    linespeed = MAX_ROBOT_FORWARD_SPEED;
+   // LOG_GREEN("rbt%d, distance to dest %f, set speed to %.3f\n",rbtId, dist, linespeed);
     
     command_rbt_forward(rbtId, linespeed);
 }
