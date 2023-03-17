@@ -5,5 +5,6 @@
 #define MAP_RET_ERR (-2)
 #define COMMAND_RET_ERR (-3)
 #define ALGO1_RET_ERR   (-4)
+#define UTIL_RET_ERR    (-5)
 
 #endif

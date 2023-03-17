@@ -378,6 +378,12 @@ static void algo1_go_point(int rbtId, double x, double y){
 
     double rbt_direction = rbt->direction;
 
+    /*生成两个向量A, B, A为robot面向，
+        B为 robot 指向终点的向量 */
+    double Ax, Ay, Bx, By;
+
+    
+
     double angle = util_angle_on_direction(rbt_x, rbt_y, x, y, rbt_direction);
 
     command_rbt_rotate_clockwise(rbtId, angle);
