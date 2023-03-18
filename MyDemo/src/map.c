@@ -190,8 +190,12 @@ int map_set_rbt_state(int rbtId,
     p->pos_y = posY;
 }
 
-const struct working_table * map_get_wt(void){
-    return g_wt;
+const struct working_table * map_get_wt(int wtId){
+    if (wtId >= g_wt_num){
+        LOG_RED("(i >= g_rbt_num)");
+        return NULL;
+    }
+    return &g_wt[wtId];
 }
 
 const struct robot * map_get_rbt(int i){
@@ -288,6 +292,15 @@ bool map_rbt_has_product(int rbtId){
     return !!(g_rbt[rbtId].carry_item_type);
 }
 
+bool map_wt_has_product(int wtId){
+    if (wtId >= g_wt_num){
+        LOG_RED("(wtId >= g_wt_num)");
+        return false;
+    }
+
+    return !!(g_wt[wtId].product_state);
+}
+
 int map_get_rbt_in_which_wt(int rbtId){
     if (rbtId >= g_rbt_num){
         LOG_RED("(rbtId >= g_rbt_num)");
@@ -295,4 +308,35 @@ int map_get_rbt_in_which_wt(int rbtId){
     }
 
     return g_rbt[rbtId].in_which_working_table;
+}
+
+bool map_unkown_prodcut(int product_type){
+    switch (product_type){
+        case PRODUCT_TYPE_1:
+        case PRODUCT_TYPE_2:
+        case PRODUCT_TYPE_3:
+        case PRODUCT_TYPE_4:
+        case PRODUCT_TYPE_5:
+        case PRODUCT_TYPE_6:
+        case PRODUCT_TYPE_7:{
+            return false;
+            }
+        default:{
+            return true;
+        }
+    }
+}
+
+void map_set_raw_material_state(
+        unsigned int * state, int product_type){
+    if (map_unkown_prodcut(product_type)){
+        LOG_RED("(map_unkown_prodcut(product_type))");
+        return ;
+    }
+
+    *state |= ((unsigned int)1 << product_type);
+}
+
+bool map_has_raw_material(unsigned int state, int pdt){
+    return !!(state & ((unsigned int)1 << pdt));
 }

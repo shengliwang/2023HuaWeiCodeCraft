@@ -65,11 +65,11 @@ int map_set_rbt_state(int rbtId,
 int map_set_wt_state(int wt_id, int wt_type, 
     double posX, double posY, int remainPdtFrame, 
     unsigned int rawMaterialState, unsigned int productState);
-const struct working_table * map_get_wt(void);
+const struct working_table * map_get_wt(int wtId);
 const struct robot * map_get_rbt(int i);
 bool map_check_vality_between_node(struct working_table *start,
                             struct working_table *dest);
 bool map_rbt_has_product(int rbtId);
-
+bool map_wt_has_product(int wtId);
 int map_get_rbt_in_which_wt(int rbtId);
 #endif
