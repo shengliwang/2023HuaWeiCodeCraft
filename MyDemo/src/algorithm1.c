@@ -539,9 +539,16 @@ void algo1_pool_remove_product(int level, int pdtId){
     int id = 0;
 
     for (int i = 0; i < MAX_WORKING_TABLE_NUM; ++i){
-        
+        if (NULL != pool[i]){
+            if (pdtId == id){
+                pool[i] = NULL;
+                return ;
+            }
+            id += 1;
+        }
     }
 
+    LOG_RED("not find\n");
 }
 
 int algo1_run1(int frameId, int money){
@@ -594,8 +601,42 @@ int algo1_run1(int frameId, int money){
 }
 
 int algo1_send_control_frame1(int frameID){
-    
 
+    /*发送帧序号*/
+    printf("%d\n", frameID);
+
+    for (int rbtId = 0; rbtId < map_get_rbt_num(); ++rbtId){
+        struct algo1_robot_state * rbt_stat = 
+            algo1_get_rbt_state(rbtId);
+        if (ALGO1_RBT_STATE_BUSY != rbt_stat->state){
+            LOG_RED("continue\n");
+            continue;
+        }
+
+        int inWorkTable = map_get_rbt_in_which_wt(rbtId);
+
+        if (map_rbt_has_product(rbtId)){
+            if (inWorkTable != rbt_stat->task.dest_wt_id){
+                algo1_go_point(rbtId, rbt_stat->task.dest_x,
+                                      rbt_stat->task.dest_y);
+            } else {
+                command_rbt_sell(rbtId);
+                /*todo: 丢帧的情况下，sell会失败，会有bug*/
+                rbt_stat->state = ALGO1_RBT_STATE_AVAILABLE;
+            }
+        }else{
+            if (inWorkTable != rbt_stat->task.start_wt_id){
+                algo1_go_point(rbtId, rbt_stat->task.start_x,
+                                      rbt_stat->task.start_y);
+            } else {
+                /*同理丢帧的情况下buy可能会失败*/
+                command_rbt_buy(rbtId);
+            }
+        }
+    }
+
+    command_ok();
+    command_send();
 }
 int algo1_run(int frameId){
     static struct working_table levelWtNode[4][MAX_WORKING_TABLE_NUM];
