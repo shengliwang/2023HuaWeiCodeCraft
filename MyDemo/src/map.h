@@ -72,4 +72,7 @@ bool map_check_vality_between_node(struct working_table *start,
 bool map_rbt_has_product(int rbtId);
 bool map_wt_has_product(int wtId);
 int map_get_rbt_in_which_wt(int rbtId);
+bool map_unkown_prodcut(int product_type);
+void map_set_raw_material_state(unsigned int * state, int product_type);
+bool map_has_raw_material(unsigned int state, int pdt);
 #endif
