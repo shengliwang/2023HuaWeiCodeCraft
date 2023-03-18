@@ -19,13 +19,6 @@
 */
 
 #if ALGO1_EN
-
-struct product_pool {
-    /*NULL,代表没有产品，!NULL代表有产品*/
-    const struct working_table * wt[MAX_WORKING_TABLE_NUM];
-};
-
-
 #define LEVEL_UNKOWN    (-1)
 #define LEVEL_0     (0)
 #define LEVEL_1     (1)
@@ -70,8 +63,19 @@ static int algo1_get_level(const struct working_table *p){
     return level;
 }
 
+struct product_pool {
+    /*NULL,代表没有产品，!NULL代表有产品*/
+    const struct working_table * wt[MAX_WORKING_TABLE_NUM];
+};
+
 /*只有三个层才有产品池*/
 static struct product_pool g_algo1_product_pool[LEVEL_NUM-1];
+
+
+static void algo1_pool_clear_product(void){
+    memset(g_algo1_product_pool, 0, sizeof(g_algo1_product_pool));
+}
+
 
 static struct product_pool * algo1_pool_get_pool(int level){
     if (level >= (LEVEL_NUM-1)){
@@ -167,7 +171,6 @@ static void algo1_pool_remove_product(int level, int pdtId){
     LOG_RED("not find\n");
 }
 
-
 /*算法1的算法执行*/
 /*赛区初赛规则：
 1: None
@@ -203,7 +206,9 @@ struct task_edge{
 static struct task_edge g_task_edge[MAX_ROBOT_NUM] = {0};
 
 #define ALGO1_RBT_STATE_AVAILABLE   (0)
-#define ALGO1_RBT_STATE_BUSY        (1)
+#define ALGO1_RBT_STATE_BUSY        (1) /*在路上奔波*/
+#define ALGO1_RBT_STATE_SELLING     (3) /*正在售卖*/
+#define ALGO1_RBT_STATE_BUYING     (4) /*正在购买*/
 struct algo1_robot_state{
     struct task_edge task;
     int state;  /*表示机器人当前的任务状态, 0表示可用，1表示正在运输货物*/
@@ -242,12 +247,13 @@ static int algo1_rbt_get_available(void){
 }
 
 
-static void algo1_rbt_update_state(int rbtId,
+static void algo1_rbt_add_task(int rbtId,
        const struct working_table* src_wt, const struct working_table *dest_wt){
 
     struct algo1_robot_state * state =  algo1_rbt_get_state(rbtId);
     const struct robot  * rbt = map_get_rbt(rbtId);
-    
+
+    LOG_GREEN("add task: rbt: %d, wt%d[type%d]->wt%d[type%d]\n",rbtId, src_wt->id, src_wt->type, dest_wt->id, dest_wt->type);
     state->task.bind_robot_id = rbtId;
     state->task.carry_type = src_wt->type;
     state->task.complete_rate = 0;
@@ -290,9 +296,6 @@ static void algo1_rbt_go_point(int rbtId, double x, double y){
 
     double flag = util_c_dirction(Ax, Ay, Bx, By);
 
-    //LOG_GREEN("rbt%d: A:(%f,%f), B:(%f,%f), angle:%f, c_direction:%f\n",
-    //rbtId, Ax, Ay, Bx, By, angle, flag);
-
     double angleSpeed = angle/0.015;
 
     if (flag >=0 ){
@@ -308,7 +311,6 @@ static void algo1_rbt_go_point(int rbtId, double x, double y){
 
     linespeed = (dist > 2.0)? 
         MAX_ROBOT_FORWARD_SPEED : MAX_ROBOT_FORWARD_SPEED/2;
-   // LOG_GREEN("rbt%d, distance to dest %f, set speed to %.3f\n",rbtId, dist, linespeed);
     
     command_rbt_forward(rbtId, linespeed);
 }
@@ -330,22 +332,22 @@ static struct algo1_dest_table_state *
 
     const struct working_table * wt = map_get_wt(wtId);
 
-    #if 0
-    if (LEVEL_1 != algo1_get_level(wt) 
-        && LEVEL_2 != algo1_get_level(wt)){
-        LOG_RED("(LEVEL_1 != algo1_get_level(wt) && LEVEL_2 != algo1_get_level(wt))");
-       // return NULL;
-    }
-    #endif
-
     return &g_dest_wt_state[wtId];
 }
 
+/*根据机器人的任务信息和工作台状态信息，更新目标工作台原材料格状态*/
 static void algo1_dest_wt_update_state(void){
+    for (int wtId = 0; wtId < map_get_wt_num(); ++wtId){
+        struct algo1_dest_table_state * dest_state =
+                algo1_dest_wt_get_state(wtId);
+        const struct working_table * wt = map_get_wt(wtId);
+        dest_state->algo1RawMaterialState = wt->raw_material_state;
+    }
+
     for (int rbtId = 0; rbtId < map_get_rbt_num(); ++rbtId){
         struct algo1_robot_state * rbt_state = algo1_rbt_get_state(rbtId);
 
-        if (ALGO1_RBT_STATE_BUSY == rbt_state->state){
+        if (ALGO1_RBT_STATE_AVAILABLE != rbt_state->state){
             int dest_id = rbt_state->task.dest_wt_id;
             int carray_type = rbt_state->task.carry_type;
         
@@ -363,6 +365,54 @@ static void algo1_dest_wt_update_state(void){
     }
 }
 
+static bool algo1_dest_src_match(int src_type, int dest_type){
+    bool flag = false;
+    switch(dest_type){
+        case PRODUCT_TYPE_4:{
+            if (PRODUCT_TYPE_1 == src_type || PRODUCT_TYPE_2 == src_type){
+                flag = true;
+            }
+            break;
+        }
+        case PRODUCT_TYPE_5:{
+            if (PRODUCT_TYPE_1 == src_type || PRODUCT_TYPE_3 == src_type){
+                flag = true;
+            }
+            break;
+        }
+        case PRODUCT_TYPE_6:{
+            if (PRODUCT_TYPE_2 == src_type || PRODUCT_TYPE_3 == src_type){
+                flag = true;
+            }
+            break;
+        }
+        case PRODUCT_TYPE_7:{
+            if (PRODUCT_TYPE_4 == src_type || PRODUCT_TYPE_5 == src_type ||
+                PRODUCT_TYPE_6 == src_type){
+                flag = true;
+            }
+            break;
+        }
+        case 8:{
+            if (PRODUCT_TYPE_7 == src_type){
+                flag = true;
+            }
+            break;
+        }
+        case 9:{
+            flag = true;
+            break;
+        }
+        default:{
+            flag = false;
+            LOG_RED("ERROR: dest_type wrong\n");
+            break;
+        }
+    }
+
+    return flag;
+}
+
 static const struct working_table * algo1_dest_wt_get_available
 ( int level, const struct working_table * src){
     /*由于9号工作台可以接受任务物品，所以，最后找不到目标的时候
@@ -375,6 +425,10 @@ static const struct working_table * algo1_dest_wt_get_available
             continue;
         }
 
+        if (!algo1_dest_src_match(src->type, wt->type)){
+            continue;
+        }
+        
         struct algo1_dest_table_state * state = 
             algo1_dest_wt_get_state(wtId);
         int carry_type = src->type;
@@ -399,8 +453,8 @@ void algo1_init(){
         memset(&g_algo1_rbt_state[i].task, 0, sizeof(struct task_edge));
     }
 
-    memset(g_algo1_product_pool, 0, sizeof(g_algo1_product_pool));
-    
+    algo1_pool_clear_product();
+
     for(int wtId = 0; wtId < map_get_wt_num(); ++wtId){
         struct algo1_dest_table_state * wt_stat = 
                         algo1_dest_wt_get_state(wtId);
@@ -436,12 +490,7 @@ int algo1_digest_one_frame(unsigned int frameid, unsigned int money){
                                     &rawMaterialState, &productState);
         map_set_wt_state(i, wtType, posX, posY, 
                             remainPdtFrame, rawMaterialState, productState);
-#if 0
-        LOG_INFO("[%d]%d %lf %lf %d 0x%x %d\n", i, wtType, posX, posY, remainPdtFrame, 
-                                    &rawMaterialState, productState);
-#endif
     }
-  //  LOG("read robot info from frame %d:\n", frameid);
 
     /*读取每一帧的机器人信息*/
     for (int i = 0; i < map_get_rbt_num(); ++i){
@@ -463,13 +512,6 @@ int algo1_digest_one_frame(unsigned int frameid, unsigned int money){
                         timeValueFactor, collisionValueFactor,
                         angleSpeed, lineSpeedX, lineSpeedY,direction,
                         posX, posY);
-#if 0
-        LOG_INFO("%d %d %lf %lf %lf %lf %lf %lf %lf %lf\n", 
-                    inWhichWt, carryItmType, 
-                    timeValueFactor, collisionValueFactor,
-                    angleSpeed, lineSpeedX, lineSpeedY, direction, 
-                    posX, posY);
-#endif
     }
 
     /*剩余数据*/
@@ -477,7 +519,6 @@ int algo1_digest_one_frame(unsigned int frameid, unsigned int money){
         if (line[0] == 'O' && line[1] == 'K') {
             return 0;
         }
-        //LOG_INFO("warning: recv[%s]", line);
     }
     
     LOG_RED("ret err!\n");
@@ -492,7 +533,8 @@ int algo1_run(int frameId, int money){
         return 0;
     }
 
-    /*更新产品池*/
+    /*生成产品池*/
+    algo1_pool_clear_product();
     for (int wtId = 0; wtId < map_get_wt_num(); ++wtId){
         algo1_pool_push_product(wtId);
     }
@@ -519,8 +561,8 @@ int algo1_run(int frameId, int money){
 
             if (NULL != dest_wt){
                 int rbtId = algo1_rbt_get_available();
-                algo1_rbt_update_state(rbtId, src_wt, dest_wt);
-                algo1_pool_remove_product(src_level, pdt);
+                algo1_rbt_add_task(rbtId, src_wt, dest_wt);
+               // algo1_pool_remove_product(src_level, pdt);
                 /*更新目标目标收购平台状态*/
                 algo1_dest_wt_update_state();
                 --availableRbtNum;
@@ -543,13 +585,72 @@ int algo1_send_control_frame(int frameID){
     for (int rbtId = 0; rbtId < map_get_rbt_num(); ++rbtId){
         struct algo1_robot_state * rbt_stat = 
             algo1_rbt_get_state(rbtId);
-        if (ALGO1_RBT_STATE_BUSY != rbt_stat->state){
+        if (ALGO1_RBT_STATE_AVAILABLE == rbt_stat->state){
             LOG_RED("continue\n");
             continue;
         }
 
         int inWorkTable = map_get_rbt_in_which_wt(rbtId);
+        
+        /*状态机大法控制机器人的状态，机器人状态分为4种*/
+        switch(rbt_stat->state){
+        case ALGO1_RBT_STATE_BUSY:{
+            if (map_rbt_has_product(rbtId)){
+                if (inWorkTable != rbt_stat->task.dest_wt_id){
+                    algo1_rbt_go_point(rbtId, rbt_stat->task.dest_x,
+                                      rbt_stat->task.dest_y);
+                } else {
+                    command_rbt_sell(rbtId);
+                    rbt_stat->state = ALGO1_RBT_STATE_SELLING;
+                }
+            }else {
+                if (inWorkTable != rbt_stat->task.start_wt_id){
+                    algo1_rbt_go_point(rbtId, rbt_stat->task.start_x,
+                                      rbt_stat->task.start_y);
+                } else {
+                    command_rbt_buy(rbtId);
+                    rbt_stat->state = ALGO1_RBT_STATE_BUYING;
+                }
+            }
+            break;
+        }
+        case ALGO1_RBT_STATE_SELLING:{
+            if (!map_rbt_has_product(rbtId)){
+                LOG_RED("robot %d not have product!\n", rbtId);
+                rbt_stat->state = ALGO1_RBT_STATE_AVAILABLE;
+                break;
+            }
+            
+            if (inWorkTable != rbt_stat->task.dest_wt_id){
+                algo1_rbt_go_point(rbtId, rbt_stat->task.dest_x,
+                                      rbt_stat->task.dest_y);
+            } else {
+                command_rbt_sell(rbtId);
+            }
+            break;
+        }
+        case ALGO1_RBT_STATE_BUYING:{
+            if (map_rbt_has_product(rbtId)){
+                LOG_RED("robot %d alreay have product\n", rbtId);
+                rbt_stat->state = ALGO1_RBT_STATE_BUSY;
+                break ;
+            }
 
+            if (inWorkTable != rbt_stat->task.start_wt_id){
+                algo1_rbt_go_point(rbtId, rbt_stat->task.start_x,
+                                  rbt_stat->task.start_y);
+            } else {
+                command_rbt_buy(rbtId);
+            }
+            break;
+        }
+        default:{
+            /*永远不可能到这个分支*/
+            LOG_RED("robot state error[%d]\n", rbt_stat->state);
+            break;
+        }
+        }
+        
         if (map_rbt_has_product(rbtId)){
             if (inWorkTable != rbt_stat->task.dest_wt_id){
                 algo1_rbt_go_point(rbtId, rbt_stat->task.dest_x,
@@ -572,6 +673,8 @@ int algo1_send_control_frame(int frameID){
 
     command_ok();
     command_send();
+
+    return 0;
 }
 
 /*todo: 试试生产者消费者模型的算法*/

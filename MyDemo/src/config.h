@@ -30,7 +30,7 @@
 
 
 /*以下为程序调试功能*/
-#define LOG_ON      (1)     /*log 功能是否开启*/
+#define LOG_ON      (0)     /*log 功能是否开启*/
 #define TIMER_ON    (1)     /*计时功能是否开启*/
 
 

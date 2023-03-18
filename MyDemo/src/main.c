@@ -35,8 +35,6 @@ int main() {
     command_ok();
     command_send();
 
-    
-
     unsigned int frameID;
     unsigned int money;
     while (scanf("%d %d", &frameID, &money) != EOF) {

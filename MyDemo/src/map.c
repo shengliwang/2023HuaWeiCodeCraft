@@ -208,9 +208,13 @@ const struct robot * map_get_rbt(int i){
 }
 
 /*检查两个工作台之间可不可以运输货物。*/
-bool map_check_vality_between_node(struct working_table *start,
-                            struct working_table *dest){
+bool map_check_vality_between_node(const struct working_table *start,
+                            const struct working_table *dest){
 
+    if (NULL == start || NULL == dest){
+        LOG_RED("ERROR: (NULL == start || NULL == dest)\n");
+        return false;
+    }
 
     /*判断工作台是否有货物*/
     if(PRODUCT_NONE == start->product_state){

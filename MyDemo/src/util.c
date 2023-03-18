@@ -102,7 +102,6 @@ int util_gen_vector_from_direction(
     
     if (isnan(*y) || isinf(*y)){
         LOG_RED("(isnan(*y) || isinf(*y)): *y=(%f), direction=(%f)!\n", *y, direction);
-       // return UTIL_RET_ERR;
     }
 
     if (direction <= -PI/2){
@@ -149,14 +148,29 @@ double util_vector_angle(double Ax, double Ay,
                             double Bx, double By){
     double cosValue = (Ax*Bx + Ay*By) /
         (util_distance(Ax, Ay, 0, 0)*util_distance(Bx, By, 0, 0));
-    double theta = acos(cosValue);
 
-    if (isnormal(theta)){
-        return theta;
+    double theta;
+    static unsigned int i = 0;
+    i+=1;
+
+    cosValue = cosValue > 1.0 ? 1.0 : cosValue;
+    cosValue = cosValue < -1.0 ? -1.0 : cosValue;
+
+#if 0
+    if (1.0 == cosValue){
+        theta = 0.0;
+    } else if (-1.0 == cosValue){
+        theta = PI;
     } else {
-        LOG_RED("(isnormal(theta)) is not ok!\n");
-        return 0;
+        theta = acos(cosValue);
     }
+#endif
+    if (isnan(theta) || isinf(theta)){
+        LOG_RED("[%u]error: theta=%f, cosValue=%f\n",i, theta, cosValue);
+        return 0.0;
+    }
+
+    return theta;
 }
 
 /*todo: 把坐标的定义写到这里来*/

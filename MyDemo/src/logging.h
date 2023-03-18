@@ -53,13 +53,23 @@ FILE * get_logfile_des(void);
 
 #define log_init(file) (0)
 #define log_deinit() (0)
-#define get_logfile_des() (0)
+#define get_logfile_des() (2)
 
-#define LOG_YELLOW(fmt, ...)
-#define LOG_RED(fmt, ...)
-#define LOG_GREEN(fmt, ...)
-#define LOG_BLUE(fmt, ...)
-#define LOG(fmt, ...)
+#define LOG_YELLOW(fmt, ...)    \
+    do {\
+        }while(0)
+#define LOG_RED(fmt, ...) \
+    do {\
+        }while(0)
+#define LOG_GREEN(fmt, ...) \
+    do {\
+        }while(0)
+#define LOG_BLUE(fmt, ...) \
+    do {\
+        }while(0)
+#define LOG(fmt, ...) \
+    do {\
+        }while(0)
 
 #endif
 
