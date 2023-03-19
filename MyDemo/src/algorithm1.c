@@ -19,6 +19,10 @@
 */
 
 #if ALGO1_EN
+
+unsigned int g_frameId;
+unsigned int g_money;
+
 #define LEVEL_UNKOWN    (-1)
 #define LEVEL_0     (0)
 #define LEVEL_1     (1)
@@ -27,10 +31,11 @@
 
 #define LEVEL_NUM   (4) /*一共有四层级别*/
 static int algo1_get_level(const struct working_table *p){
+    int level = LEVEL_UNKOWN;
     if (NULL == p){
         LOG_RED("ERROR: (NULL == p)\n");
+        return level;
     }
-    int level;
     switch (p->type)
     {
         case 1:
@@ -356,9 +361,9 @@ static void algo1_dest_wt_update_state(void){
 
             if (map_unkown_prodcut(carray_type)){
                 LOG_RED("(map_unkown_prodcut(type))\n");
+                continue;
             }
 
-            /*其他产品格的状态怎么更新 : todo:....*/
             unsigned int * rawStat = &(dest_state->algo1RawMaterialState);
             map_set_raw_material_state(rawStat, carray_type);
         }
@@ -466,6 +471,9 @@ void algo1_init(){
 
 /*处理判题器发来的一帧数据*/
 int algo1_digest_one_frame(unsigned int frameid, unsigned int money){
+    g_frameId = frameid;
+    g_money = money;
+
     char line[1024];
 
     int wt_num = 0;
@@ -477,7 +485,6 @@ int algo1_digest_one_frame(unsigned int frameid, unsigned int money){
         LOG_RED("wt_num != map_get_wt_num()");
     }
 
-  //  LOG("read working table from frame %d:\n", frameid);
     /*读取每一帧工作台的信息*/
     for (int i = 0; i < wt_num; ++i){
         int wtType;
@@ -571,7 +578,7 @@ int algo1_run(int frameId, int money){
                 }
             }
         }
-        /*由于9号工作台也可以收购物品，所以也处理一下*/
+        /*todo: 由于9号工作台也可以收购物品，所以也处理一下*/
     }
 }
 
@@ -591,12 +598,15 @@ int algo1_send_control_frame(int frameID){
         }
 
         int inWorkTable = map_get_rbt_in_which_wt(rbtId);
+
         
         /*状态机大法控制机器人的状态，机器人状态分为4种*/
         switch(rbt_stat->state){
         case ALGO1_RBT_STATE_BUSY:{
+
             if (map_rbt_has_product(rbtId)){
-                if (inWorkTable != rbt_stat->task.dest_wt_id){
+                if (inWorkTable != rbt_stat->task.dest_wt_id){  
+
                     algo1_rbt_go_point(rbtId, rbt_stat->task.dest_x,
                                       rbt_stat->task.dest_y);
                 } else {
@@ -650,7 +660,8 @@ int algo1_send_control_frame(int frameID){
             break;
         }
         }
-        
+
+        #if 0
         if (map_rbt_has_product(rbtId)){
             if (inWorkTable != rbt_stat->task.dest_wt_id){
                 algo1_rbt_go_point(rbtId, rbt_stat->task.dest_x,
@@ -669,6 +680,7 @@ int algo1_send_control_frame(int frameID){
                 command_rbt_buy(rbtId);
             }
         }
+        #endif
     }
 
     command_ok();

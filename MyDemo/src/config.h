@@ -33,11 +33,6 @@
 #define LOG_ON      (0)     /*log 功能是否开启*/
 #define TIMER_ON    (1)     /*计时功能是否开启*/
 
-
-
-
 #define   ALGO1_EN  (1)     /*启用算法1*/
-
-
 
 #endif

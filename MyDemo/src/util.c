@@ -93,6 +93,7 @@ double util_angle_on_direction(double x, double y, double m, double n, double di
     /*todo到网上搜搜PI有没有C语言标准宏定义*/
 }
 #endif
+
 /*根据方向direction生成向量,方向范围[-Pi, Pi]*/
 int util_gen_vector_from_direction(
                         double *x, double *y,
@@ -156,7 +157,7 @@ double util_vector_angle(double Ax, double Ay,
     cosValue = cosValue > 1.0 ? 1.0 : cosValue;
     cosValue = cosValue < -1.0 ? -1.0 : cosValue;
 
-#if 0
+#if 0 /*todo: 检查此函数潜在的问题*/
     if (1.0 == cosValue){
         theta = 0.0;
     } else if (-1.0 == cosValue){
@@ -164,7 +165,10 @@ double util_vector_angle(double Ax, double Ay,
     } else {
         theta = acos(cosValue);
     }
+#else
+    theta = acos(cosValue);
 #endif
+
     if (isnan(theta) || isinf(theta)){
         LOG_RED("[%u]error: theta=%f, cosValue=%f\n",i, theta, cosValue);
         return 0.0;

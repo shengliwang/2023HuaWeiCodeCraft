@@ -25,6 +25,7 @@ int main() {
     if (0 != (ret = log_init("./myDemoLog.txt"))){
         return ret;
     }
+    
     LOG("log init OK!\n");
     if (0!=map_init()){
         LOG_RED("map_init failed");
