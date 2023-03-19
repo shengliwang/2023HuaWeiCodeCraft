@@ -23,6 +23,152 @@
 unsigned int g_frameId;
 unsigned int g_money;
 
+
+/*算法1的算法执行*/
+/*赛区初赛规则：
+1: None
+2: None 
+3: None
+4: 1+2;
+5: 1+3;
+6: 2+3;
+7: 4+5+6;
+8: 7
+9: 1,2,3,4,5,6,7
+*/
+struct task_edge{
+    int start_wt_id;
+    double start_x;
+    double start_y;
+
+    int dest_wt_id;
+    double dest_x;
+    double dest_y;
+
+    int priority;
+    int carry_type; /*携带物品类型*/
+    int bind_robot_id; /*绑定特定的机器人去完成任务*/
+    double robot_init_x;    /*机器人初始坐标*/
+    double robot_init_y;
+    double total_distance;
+    double done_distance;
+
+    double complete_rate;   /*任务完成度 0~1*/
+};
+
+static struct task_edge g_task_edge[MAX_ROBOT_NUM] = {0};
+
+#define ALGO1_RBT_STATE_AVAILABLE   (0)
+#define ALGO1_RBT_STATE_BUSY        (1) /*在路上奔波*/
+#define ALGO1_RBT_STATE_SELLING     (3) /*正在售卖*/
+#define ALGO1_RBT_STATE_BUYING     (4) /*正在购买*/
+struct algo1_robot_state{
+    struct task_edge task;
+    int state;  /*表示机器人当前的任务状态, 0表示可用，1表示正在运输货物*/
+};
+
+static struct algo1_robot_state g_algo1_rbt_state[MAX_ROBOT_NUM];
+static struct algo1_robot_state * algo1_rbt_get_state(int rbtId){
+    if (rbtId >= map_get_rbt_num()){
+        LOG_RED("(rbtId >= map_get_rbt_num())");
+        return NULL;
+    }
+
+    return &g_algo1_rbt_state[rbtId];
+}
+
+static int algo1_rbt_get_available_num(void){
+    int num = 0;
+    for (int i = 0; i < map_get_rbt_num(); ++i){
+        if (ALGO1_RBT_STATE_AVAILABLE == g_algo1_rbt_state[i].state){
+            ++num;
+        }
+    }
+
+    return num;
+}
+
+static int algo1_rbt_get_available(void){
+    for (int i = 0; i < map_get_rbt_num(); ++i){
+        if (ALGO1_RBT_STATE_AVAILABLE == g_algo1_rbt_state[i].state){
+            return i;
+        }
+    }
+
+    LOG_RED("error ");  /*一定是能找到的*/
+    return 0xffffff;
+}
+
+
+static void algo1_rbt_add_task(int rbtId,
+       const struct working_table* src_wt, const struct working_table *dest_wt){
+
+    struct algo1_robot_state * state =  algo1_rbt_get_state(rbtId);
+    const struct robot  * rbt = map_get_rbt(rbtId);
+
+    LOG_GREEN("frame[%u] add task: rbt: %d, wt%d[type%d]->wt%d[type%d]\n",
+        g_frameId, 
+        rbtId, src_wt->id, src_wt->type, dest_wt->id, dest_wt->type);
+    state->task.bind_robot_id = rbtId;
+    state->task.carry_type = src_wt->type;
+    state->task.complete_rate = 0;
+    state->task.dest_wt_id = dest_wt->id;
+    state->task.dest_x = dest_wt->pos_x;
+    state->task.dest_y = dest_wt->pos_y;
+    state->task.done_distance = 0;
+    state->task.priority = 1;
+    state->task.robot_init_x = rbt->pos_x;
+    state->task.robot_init_y = rbt->pos_y;
+    state->task.start_wt_id = src_wt->id;
+    state->task.start_x = src_wt->pos_x;
+    state->task.start_y = src_wt->pos_y;
+    state->task.total_distance = 0;
+
+    state->state = ALGO1_RBT_STATE_BUSY;
+}
+
+
+
+static void algo1_rbt_go_point(int rbtId, double x, double y){
+    const struct robot * rbt = map_get_rbt(rbtId);
+
+    double rbt_x = rbt->pos_x;
+    double rbt_y = rbt->pos_y;
+
+    double rbt_direction = rbt->direction;
+
+    /*生成两个向量A, B, A为表示robot朝向的向量，
+        B为 robot 指向终点的向量 */
+    double Ax, Ay, Bx, By;
+
+    util_gen_vector_from_direction(&Ax, &Ay, rbt_direction);
+    util_gen_vector_from_point(&Bx, &By,
+                    rbt_x, rbt_y,
+                    x, y);
+
+    /*计算两个向量之间的夹角*/
+    double angle = util_vector_angle(Ax, Ay, Bx, By);
+
+    double flag = util_c_dirction(Ax, Ay, Bx, By);
+
+    double angleSpeed = angle/0.015;
+
+    if (flag >=0 ){
+        command_rbt_rotate_anticlockwise(rbtId, angleSpeed);
+    } else {
+        command_rbt_rotate_clockwise(rbtId, angleSpeed);
+    }
+
+    double linespeed = 0.1;
+
+    /*距离越近速度越慢,每一帧的间隔是15ms即0.015s*/
+    double dist = util_distance(x, y, rbt_x, rbt_y);
+
+    linespeed = (dist > 2.0)? 
+        MAX_ROBOT_FORWARD_SPEED : MAX_ROBOT_FORWARD_SPEED/2;
+    
+    command_rbt_forward(rbtId, linespeed);
+}
 #define LEVEL_UNKOWN    (-1)
 #define LEVEL_0     (0)
 #define LEVEL_1     (1)
@@ -130,6 +276,21 @@ static const struct working_table * algo1_pool_get_product(int level, int pdtId)
 
 
 static int algo1_pool_push_product(int wtId){
+
+    /*TODO：需要判断更复杂的情况，不如任务线上的产品已经购买过了，
+    此时产生的新产品应该是可以加入到产品池的*/
+    /*检查是否在其他机器人的任务线上,如果是，则直接返回即可*/
+    for (int rbtId = 0; rbtId < map_get_rbt_num();++rbtId){
+        struct algo1_robot_state * state = algo1_rbt_get_state(rbtId);
+        if (ALGO1_RBT_STATE_AVAILABLE == state->state){
+            continue;
+        }
+
+        if (state->task.start_wt_id == wtId){
+            return 0;
+        }
+    }
+    
     if (!map_wt_has_product(wtId)){
         return 0;
     }
@@ -138,7 +299,7 @@ static int algo1_pool_push_product(int wtId){
 
     struct product_pool * pool = algo1_pool_get_pool(level);
 
-    /*检查当前工作台有没有有没有加入到产品池中*/
+    /*检查当前工作台有没有加入到产品池中*/
     for (int i = 0; i < MAX_WORKING_TABLE_NUM; ++i){
         if (pWt == pool->wt[i]){
             return 0;   /*已经在产品池了，直接返回*/
@@ -176,149 +337,7 @@ static void algo1_pool_remove_product(int level, int pdtId){
     LOG_RED("not find\n");
 }
 
-/*算法1的算法执行*/
-/*赛区初赛规则：
-1: None
-2: None 
-3: None
-4: 1+2;
-5: 1+3;
-6: 2+3;
-7: 4+5+6;
-8: 7
-9: 1,2,3,4,5,6,7
-*/
-struct task_edge{
-    int start_wt_id;
-    double start_x;
-    double start_y;
 
-    int dest_wt_id;
-    double dest_x;
-    double dest_y;
-
-    int priority;
-    int carry_type; /*携带物品类型*/
-    int bind_robot_id; /*绑定特定的机器人去完成任务*/
-    double robot_init_x;    /*机器人初始坐标*/
-    double robot_init_y;
-    double total_distance;
-    double done_distance;
-
-    double complete_rate;   /*任务完成度 0~1*/
-};
-
-static struct task_edge g_task_edge[MAX_ROBOT_NUM] = {0};
-
-#define ALGO1_RBT_STATE_AVAILABLE   (0)
-#define ALGO1_RBT_STATE_BUSY        (1) /*在路上奔波*/
-#define ALGO1_RBT_STATE_SELLING     (3) /*正在售卖*/
-#define ALGO1_RBT_STATE_BUYING     (4) /*正在购买*/
-struct algo1_robot_state{
-    struct task_edge task;
-    int state;  /*表示机器人当前的任务状态, 0表示可用，1表示正在运输货物*/
-};
-
-static struct algo1_robot_state g_algo1_rbt_state[MAX_ROBOT_NUM];
-static struct algo1_robot_state * algo1_rbt_get_state(int rbtId){
-    if (rbtId >= map_get_rbt_num()){
-        LOG_RED("(rbtId >= map_get_rbt_num())");
-        return NULL;
-    }
-
-    return &g_algo1_rbt_state[rbtId];
-}
-
-static int algo1_rbt_get_available_num(void){
-    int num = 0;
-    for (int i = 0; i < map_get_rbt_num(); ++i){
-        if (ALGO1_RBT_STATE_AVAILABLE == g_algo1_rbt_state[i].state){
-            ++num;
-        }
-    }
-
-    return num;
-}
-
-static int algo1_rbt_get_available(void){
-    for (int i = 0; i < map_get_rbt_num(); ++i){
-        if (ALGO1_RBT_STATE_AVAILABLE == g_algo1_rbt_state[i].state){
-            return i;
-        }
-    }
-
-    LOG_RED("error ");  /*一定是能找到的*/
-    return 0xffffff;
-}
-
-
-static void algo1_rbt_add_task(int rbtId,
-       const struct working_table* src_wt, const struct working_table *dest_wt){
-
-    struct algo1_robot_state * state =  algo1_rbt_get_state(rbtId);
-    const struct robot  * rbt = map_get_rbt(rbtId);
-
-    LOG_GREEN("add task: rbt: %d, wt%d[type%d]->wt%d[type%d]\n",rbtId, src_wt->id, src_wt->type, dest_wt->id, dest_wt->type);
-    state->task.bind_robot_id = rbtId;
-    state->task.carry_type = src_wt->type;
-    state->task.complete_rate = 0;
-    state->task.dest_wt_id = dest_wt->id;
-    state->task.dest_x = dest_wt->pos_x;
-    state->task.dest_y = dest_wt->pos_y;
-    state->task.done_distance = 0;
-    state->task.priority = 1;
-    state->task.robot_init_x = rbt->pos_x;
-    state->task.robot_init_y = rbt->pos_y;
-    state->task.start_wt_id = src_wt->id;
-    state->task.start_x = src_wt->pos_x;
-    state->task.start_y = src_wt->pos_y;
-    state->task.total_distance = 0;
-
-    state->state = ALGO1_RBT_STATE_BUSY;
-}
-
-
-
-static void algo1_rbt_go_point(int rbtId, double x, double y){
-    const struct robot * rbt = map_get_rbt(rbtId);
-
-    double rbt_x = rbt->pos_x;
-    double rbt_y = rbt->pos_y;
-
-    double rbt_direction = rbt->direction;
-
-    /*生成两个向量A, B, A为表示robot朝向的向量，
-        B为 robot 指向终点的向量 */
-    double Ax, Ay, Bx, By;
-
-    util_gen_vector_from_direction(&Ax, &Ay, rbt_direction);
-    util_gen_vector_from_point(&Bx, &By,
-                    rbt_x, rbt_y,
-                    x, y);
-
-    /*计算两个向量之间的夹角*/
-    double angle = util_vector_angle(Ax, Ay, Bx, By);
-
-    double flag = util_c_dirction(Ax, Ay, Bx, By);
-
-    double angleSpeed = angle/0.015;
-
-    if (flag >=0 ){
-        command_rbt_rotate_anticlockwise(rbtId, angleSpeed);
-    } else {
-        command_rbt_rotate_clockwise(rbtId, angleSpeed);
-    }
-
-    double linespeed = 0.1;
-
-    /*距离越近速度越慢,每一帧的间隔是15ms即0.015s*/
-    double dist = util_distance(x, y, rbt_x, rbt_y);
-
-    linespeed = (dist > 2.0)? 
-        MAX_ROBOT_FORWARD_SPEED : MAX_ROBOT_FORWARD_SPEED/2;
-    
-    command_rbt_forward(rbtId, linespeed);
-}
 
 
 /*只表示4,5,6,7四种平台即可*/
