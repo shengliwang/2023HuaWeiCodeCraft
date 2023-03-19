@@ -214,6 +214,10 @@ static int algo1_get_level(const struct working_table *p){
     return level;
 }
 
+/*todo: 需要考虑一个工作台有多个product的情况，
+所以用工作台表示产品类型并不合理...........*/
+/*todo: 还需要考虑不同的产品价格差价是不一样的，
+并不是统一层的产品都是等价的产品。.........*/
 struct product_pool {
     /*NULL,代表没有产品，!NULL代表有产品*/
     const struct working_table * wt[MAX_WORKING_TABLE_NUM];
