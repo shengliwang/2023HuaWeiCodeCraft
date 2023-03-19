@@ -51,6 +51,20 @@ int command_rbt_buy(int rbt_id){
         return COMMAND_RET_ERR;
     }
 
+    int wt_id = map_get_rbt_in_which_wt(rbt_id);
+    if (ROBOT_IN_NONE_WORKING_TABLE == wt_id){
+        LOG_RED("ERROR: robot %u buying, but not in workbench\n", 
+            rbt_id);
+        return COMMAND_RET_ERR;
+    }
+
+    const struct working_table * wt = map_get_wt(wt_id);
+    if (/*NULL != wt &&*/PRODUCT_NONE == wt->product_state){
+        LOG_RED("ERROR: robot %u buying ,but workbench%u[type%d]"
+            "not have product\n", rbt_id, wt_id, wt->type);
+        return COMMAND_RET_ERR;
+    }
+
     printf("buy %d\n", rbt_id);
     return 0;
 }
@@ -58,6 +72,30 @@ int command_rbt_buy(int rbt_id){
 int command_rbt_sell(int rbt_id){
     if (rbt_id >= map_get_rbt_num()){
         LOG_RED("error:%d >= %d\n", rbt_id, map_get_rbt_num());
+        return COMMAND_RET_ERR;
+    }
+
+    int wt_id = map_get_rbt_in_which_wt(rbt_id);
+    if (ROBOT_IN_NONE_WORKING_TABLE == wt_id){
+        LOG_RED("ERROR: robot %u selling, but not in workbench\n", 
+            rbt_id);
+        return COMMAND_RET_ERR;
+    }
+
+    int carry_type = map_get_rbt(rbt_id)->carry_item_type;
+    /*要把结构体中的相关成员用枚举表示，这样方便编写代码*/
+    if (PRODUCT_TYPE_NONE == carry_type){
+        LOG_RED("ERROR: robot %u selling, but not carry product\n",
+            rbt_id);
+        return COMMAND_RET_ERR;
+    }
+    
+    const struct working_table * wt = map_get_wt(wt_id);
+
+    if(map_has_raw_material(wt->raw_material_state, carry_type)){
+        LOG_RED("ERROR: robot %u selling ,but workbench%u[type%d]"
+                   " already have rawMaterial[type%d]\n",
+                    rbt_id, wt_id, wt->type, carry_type);
         return COMMAND_RET_ERR;
     }
 

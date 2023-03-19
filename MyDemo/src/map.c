@@ -341,6 +341,7 @@ void map_set_raw_material_state(
     *state |= ((unsigned int)1 << product_type);
 }
 
+/*有对应产品，返回 true,否则返回false*/
 bool map_has_raw_material(unsigned int state, int pdt){
     return !!(state & ((unsigned int)1 << pdt));
 }

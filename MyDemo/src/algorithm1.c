@@ -603,10 +603,8 @@ int algo1_send_control_frame(int frameID){
         /*状态机大法控制机器人的状态，机器人状态分为4种*/
         switch(rbt_stat->state){
         case ALGO1_RBT_STATE_BUSY:{
-
             if (map_rbt_has_product(rbtId)){
-                if (inWorkTable != rbt_stat->task.dest_wt_id){  
-
+                if (inWorkTable != rbt_stat->task.dest_wt_id){
                     algo1_rbt_go_point(rbtId, rbt_stat->task.dest_x,
                                       rbt_stat->task.dest_y);
                 } else {
@@ -626,7 +624,7 @@ int algo1_send_control_frame(int frameID){
         }
         case ALGO1_RBT_STATE_SELLING:{
             if (!map_rbt_has_product(rbtId)){
-                LOG_RED("robot %d not have product!\n", rbtId);
+//                LOG_RED("robot %d not have product!\n", rbtId);
                 rbt_stat->state = ALGO1_RBT_STATE_AVAILABLE;
                 break;
             }
@@ -641,7 +639,7 @@ int algo1_send_control_frame(int frameID){
         }
         case ALGO1_RBT_STATE_BUYING:{
             if (map_rbt_has_product(rbtId)){
-                LOG_RED("robot %d alreay have product\n", rbtId);
+           //     LOG_RED("robot %d alreay have product\n", rbtId);
                 rbt_stat->state = ALGO1_RBT_STATE_BUSY;
                 break ;
             }
