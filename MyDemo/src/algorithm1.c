@@ -443,7 +443,7 @@ static bool algo1_dest_src_match(int src_type, int dest_type){
 
 static const struct working_table * algo1_dest_wt_get_available
 ( int level, const struct working_table * src){
-    /*由于9号工作台可以接受任务物品，所以，最后找不到目标的时候
+    /*由于9号工作台可以接受任何物品，所以，最后找不到目标的时候
     可以把9号工作台用起来*/
     /*1. 8号工作台随意返回*/
     /*2. 4,5,6,7要判断*/
@@ -474,6 +474,76 @@ static const struct working_table * algo1_dest_wt_get_available
     return NULL;
 }
 
+//#define INFINITY (-log(0)) /*定义正无限大的浮点数*/
+#define MY_INFINITY (10000000.0) /*定义正无限大的浮点数*/
+
+double algo1_dest_pool_calc_distacne(int rbtId, 
+        const struct working_table * src,
+        const struct working_table * dest){
+    if (NULL == src || NULL == dest){
+        return MY_INFINITY;
+    }
+
+    double rbt_x = map_get_rbt(rbtId)->pos_x;
+    double rbt_y = map_get_rbt(rbtId)->pos_y;
+
+    double src_x = src->pos_x;
+    double src_y = src->pos_y;
+
+    double dest_x = dest->pos_x;
+    double dest_y = dest->pos_y;
+
+    return (util_distance(rbt_x, rbt_y, src_x, src_y) +
+            util_distance(src_x, src_y, dest_x, dest_y));
+}
+
+/*计算上下层级中，目标工作台，与源工作台中总距离与rbt最近的一条路径*/
+int algo1_dest_pool_get_min_distance(
+     const struct working_table ** src_wt, 
+     const struct working_table ** dest_wt,
+         int rbtId, int src_level, int dest_level){
+
+    int src_pdt_num = algo1_pool_get_product_num(src_level);
+    if (0 == src_pdt_num){
+        *src_wt = NULL;
+        *dest_wt = NULL;
+        return 0;
+    }
+    
+    const struct working_table * src_wt_tmp;
+    const struct working_table * dest_wt_tmp;
+
+    const struct working_table * src_wt_tmp_min;
+    const struct working_table * dest_wt_tmp_min;
+
+    int pdtId = 0;
+
+    src_wt_tmp_min = src_wt_tmp =
+                algo1_pool_get_product(src_level, pdtId);
+
+    dest_wt_tmp_min = dest_wt_tmp =
+        algo1_dest_wt_get_available(dest_level, src_wt_tmp);
+
+    double distance = algo1_dest_pool_calc_distacne(
+                                rbtId, src_wt_tmp, dest_wt_tmp);
+
+    for (int pdtId = 1; pdtId < src_pdt_num; ++pdtId){
+        src_wt_tmp = algo1_pool_get_product(src_level, pdtId);
+        dest_wt_tmp = algo1_dest_wt_get_available(dest_level, src_wt_tmp);
+        double distance_tmp = algo1_dest_pool_calc_distacne(
+                                rbtId, src_wt_tmp, dest_wt_tmp);
+        if (distance_tmp < distance ){
+            src_wt_tmp_min = src_wt_tmp;
+            dest_wt_tmp_min = dest_wt_tmp;
+            distance = distance_tmp;
+        }
+    }
+
+    *src_wt = src_wt_tmp_min;
+    *dest_wt = dest_wt_tmp_min;
+
+    return 0;
+}
 
 void algo1_init(){
     for (int i = 0; i < map_get_rbt_num(); ++i){
@@ -585,6 +655,33 @@ int algo1_run(int frameId, int money){
             continue;
         }
 
+        /*改进： 根据机器人去选工作台，所有的距离都算出来，选择最短的...*/
+
+        for (int rbtId = 0; rbtId < map_get_rbt_num(); ++rbtId){
+            struct algo1_robot_state * state = 
+                algo1_rbt_get_state(rbtId);
+            if (ALGO1_RBT_STATE_AVAILABLE != state->state){
+                continue;
+            }
+
+            algo1_dest_pool_get_min_distance(
+                    &src_wt, &dest_wt,
+                    rbtId, src_level, dest_level);
+            
+            if (NULL == src_wt || NULL == dest_wt){
+                continue;
+            }
+
+            algo1_rbt_add_task(rbtId, src_wt, dest_wt);
+            algo1_dest_wt_update_state();
+        }
+
+        if (0 == algo1_rbt_get_available_num()){
+            return 0;
+        }
+
+        //not use
+        #if 0
         for (int pdt = 0; pdt < src_pdt_num; ++pdt){
             src_wt = algo1_pool_get_product(src_level, pdt);
             dest_wt = algo1_dest_wt_get_available(dest_level, src_wt);
@@ -601,6 +698,7 @@ int algo1_run(int frameId, int money){
                 }
             }
         }
+        #endif
         /*todo: 由于9号工作台也可以收购物品，所以也处理一下*/
     }
 }
