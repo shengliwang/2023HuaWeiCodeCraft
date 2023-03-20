@@ -152,6 +152,7 @@ static void algo1_rbt_go_point(int rbtId, double x, double y){
     double flag = util_c_dirction(Ax, Ay, Bx, By);
 
     double angleSpeed = angle/0.015;
+   // double angleSpeed = PI;
 
     if (flag >=0 ){
         command_rbt_rotate_anticlockwise(rbtId, angleSpeed);
@@ -166,6 +167,8 @@ static void algo1_rbt_go_point(int rbtId, double x, double y){
 
     linespeed = (dist > 2.0)? 
         MAX_ROBOT_FORWARD_SPEED : MAX_ROBOT_FORWARD_SPEED/2;
+
+    linespeed = (angle > PI/2) ? 0 : linespeed;
     
     command_rbt_forward(rbtId, linespeed);
 }
@@ -281,7 +284,7 @@ static const struct working_table * algo1_pool_get_product(int level, int pdtId)
 
 static int algo1_pool_push_product(int wtId){
 
-    /*TODO：需要判断更复杂的情况，不如任务线上的产品已经购买过了，
+    /*TODO：需要判断更复杂的情况，如任务线上的产品已经购买过了，
     此时产生的新产品应该是可以加入到产品池的*/
     /*检查是否在其他机器人的任务线上,如果是，则直接返回即可*/
     for (int rbtId = 0; rbtId < map_get_rbt_num();++rbtId){
@@ -322,6 +325,16 @@ static int algo1_pool_push_product(int wtId){
     return ALGO1_RET_ERR;
 }
 
+
+static void algo1_pool_update(void){
+    /*清空*/
+    algo1_pool_clear_product();
+
+    /*塞产品到产品池*/
+    for (int wtId = 0; wtId < map_get_wt_num(); ++wtId){
+        algo1_pool_push_product(wtId);
+    }
+}
 
 static void algo1_pool_remove_product(int level, int pdtId){
     struct product_pool * pool = algo1_pool_get_pool(level);
@@ -689,10 +702,7 @@ int algo1_run(int frameId, int money){
     }
 
     /*生成产品池*/
-    algo1_pool_clear_product();
-    for (int wtId = 0; wtId < map_get_wt_num(); ++wtId){
-        algo1_pool_push_product(wtId);
-    }
+    algo1_pool_update();
 
     /*更新目标收购平台的状态，根据机器人的信息*/
     algo1_dest_wt_update_state();
@@ -728,7 +738,8 @@ int algo1_run(int frameId, int money){
             }
 
             algo1_rbt_add_task(rbtId, src_wt, dest_wt);
-            algo1_dest_wt_update_state();
+            algo1_pool_update();    /*更新产品池*/
+            algo1_dest_wt_update_state();   /*更新目标工作台*/
         }
 
         if (0 == algo1_rbt_get_available_num()){
