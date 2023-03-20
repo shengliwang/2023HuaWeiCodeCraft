@@ -441,8 +441,10 @@ static bool algo1_dest_src_match(int src_type, int dest_type){
     return flag;
 }
 
-static const struct working_table * algo1_dest_wt_get_available
+/*在level级别中，求出src能送出的dest的个数*/
+static int algo1_dest_wt_get_available_num
 ( int level, const struct working_table * src){
+    int num = 0;
     /*由于9号工作台可以接受任何物品，所以，最后找不到目标的时候
     可以把9号工作台用起来*/
     /*1. 8号工作台随意返回*/
@@ -467,9 +469,65 @@ static const struct working_table * algo1_dest_wt_get_available
             continue;
         }
 
-        return wt;
+        num += 1;
     }
 
+    for (int wtId = 0; wtId < map_get_wt_num(); ++wtId){
+        if (9 == map_get_wt(wtId)->type){
+            num += 1;
+        }
+    }
+
+    return num;
+}
+
+
+static const struct working_table * algo1_dest_wt_get_available
+( int level, int dest_id, const struct working_table * src){
+
+    int id = -1;
+    /*由于9号工作台可以接受任何物品，所以，最后找不到目标的时候
+    可以把9号工作台用起来*/
+    /*1. 8号工作台随意返回*/
+    /*2. 4,5,6,7要判断*/
+    for (int wtId = 0; wtId < map_get_wt_num(); ++wtId){
+        const struct working_table * wt = map_get_wt(wtId);
+        if (level != algo1_get_level(wt)){
+            continue;
+        }
+
+        if (!algo1_dest_src_match(src->type, wt->type)){
+            continue;
+        }
+        
+        struct algo1_dest_table_state * state = 
+            algo1_dest_wt_get_state(wtId);
+        int carry_type = src->type;
+
+        unsigned int rawMaterialStat = state->algo1RawMaterialState;
+
+        if (map_has_raw_material(rawMaterialStat, carry_type)){
+            continue;
+        }
+
+        id += 1;
+
+        if (id == dest_id){
+            return wt;
+        }
+    }
+
+    for (int wtId = 0; wtId < map_get_wt_num(); ++wtId){
+        const struct working_table * wt = map_get_wt(wtId);
+        if (9 == wt->type){
+            id += 1;
+            if (id == dest_id){
+                return wt;
+            }
+        }
+    }
+
+    /*下面肯定执行不到，用于调试*/
     LOG_BLUE("warning: not find available dest working talbe!\n");
     return NULL;
 }
@@ -513,29 +571,26 @@ int algo1_dest_pool_get_min_distance(
     const struct working_table * src_wt_tmp;
     const struct working_table * dest_wt_tmp;
 
-    const struct working_table * src_wt_tmp_min;
-    const struct working_table * dest_wt_tmp_min;
+    const struct working_table * src_wt_tmp_min = NULL;
+    const struct working_table * dest_wt_tmp_min = NULL;
 
-    int pdtId = 0;
+    double distance = MY_INFINITY;
 
-    src_wt_tmp_min = src_wt_tmp =
-                algo1_pool_get_product(src_level, pdtId);
-
-    dest_wt_tmp_min = dest_wt_tmp =
-        algo1_dest_wt_get_available(dest_level, src_wt_tmp);
-
-    double distance = algo1_dest_pool_calc_distacne(
-                                rbtId, src_wt_tmp, dest_wt_tmp);
-
-    for (int pdtId = 1; pdtId < src_pdt_num; ++pdtId){
+    for (int pdtId = 0; pdtId < src_pdt_num; ++pdtId){
         src_wt_tmp = algo1_pool_get_product(src_level, pdtId);
-        dest_wt_tmp = algo1_dest_wt_get_available(dest_level, src_wt_tmp);
-        double distance_tmp = algo1_dest_pool_calc_distacne(
+        int dest_wt_num =
+            algo1_dest_wt_get_available_num(dest_level, src_wt_tmp);
+
+        for (int dest_wt_id = 0; dest_wt_id < dest_wt_num; ++dest_wt_id){
+            dest_wt_tmp = algo1_dest_wt_get_available(
+                        dest_level, dest_wt_id, src_wt_tmp);
+            double distance_tmp = algo1_dest_pool_calc_distacne(
                                 rbtId, src_wt_tmp, dest_wt_tmp);
-        if (distance_tmp < distance ){
-            src_wt_tmp_min = src_wt_tmp;
-            dest_wt_tmp_min = dest_wt_tmp;
-            distance = distance_tmp;
+            if (distance_tmp < distance ){
+                src_wt_tmp_min = src_wt_tmp;
+                dest_wt_tmp_min = dest_wt_tmp;
+                distance = distance_tmp;
+            }
         }
     }
 
