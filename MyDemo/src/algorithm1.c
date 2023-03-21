@@ -128,7 +128,7 @@ static void algo1_rbt_add_task(int rbtId,
 }
 
 
-
+/*需要实现带有避免碰撞的运动*/
 static void algo1_rbt_go_point(int rbtId, double x, double y){
     const struct robot * rbt = map_get_rbt(rbtId);
 
@@ -152,7 +152,6 @@ static void algo1_rbt_go_point(int rbtId, double x, double y){
     double flag = util_c_dirction(Ax, Ay, Bx, By);
 
     double angleSpeed = angle/0.015;
-   // double angleSpeed = PI;
 
     if (flag >=0 ){
         command_rbt_rotate_anticlockwise(rbtId, angleSpeed);
@@ -168,7 +167,7 @@ static void algo1_rbt_go_point(int rbtId, double x, double y){
     linespeed = (dist > 2.0)? 
         MAX_ROBOT_FORWARD_SPEED : MAX_ROBOT_FORWARD_SPEED/2;
 
-    linespeed = (angle > PI/2) ? 0 : linespeed;
+    linespeed = (angle > PI/2) ? (MAX_ROBOT_FORWARD_SPEED/3) : linespeed;
     
     command_rbt_forward(rbtId, linespeed);
 }
