@@ -11,18 +11,14 @@
 #include "util.h"
 #include "config.h"
 #include "command.h"
+#include "algorithm.h"
 
 /* 此算法，没有考虑其他因素，只是单纯的买东西，买东西，不考虑其他任何因素
 * 不考虑碰撞，不考虑持有时间。不可抢占，
 * 把运输抽象成任务，按照优先级分配给机器人，机器人一下只能执行一个任务。
 在执行一个任务的时候，不能中断去执行其他任务。当前任务必须执行完，才能重新计算。
 */
-
 #if ALGO1_EN
-
-unsigned int g_frameId;
-unsigned int g_money;
-
 
 /*算法1的算法执行*/
 /*赛区初赛规则：
@@ -107,7 +103,7 @@ static void algo1_rbt_add_task(int rbtId,
     const struct robot  * rbt = map_get_rbt(rbtId);
 
     LOG_GREEN("frame[%u] add task: rbt: %d, wt%d[type%d]->wt%d[type%d]\n",
-        g_frameId, 
+        algo_get_frameId(), 
         rbtId, src_wt->id, src_wt->type, dest_wt->id, dest_wt->type);
     state->task.bind_robot_id = rbtId;
     state->task.carry_type = src_wt->type;
@@ -627,72 +623,7 @@ void algo1_init(){
     }
 }
 
-
-
-/*处理判题器发来的一帧数据*/
-int algo1_digest_one_frame(unsigned int frameid, unsigned int money){
-    g_frameId = frameid;
-    g_money = money;
-
-    char line[1024];
-
-    int wt_num = 0;
-    if (scanf("%d", &wt_num) < 0){
-        LOG_RED("error in scanf\n");
-    }
-
-    if (wt_num != map_get_wt_num()){
-        LOG_RED("wt_num != map_get_wt_num()");
-    }
-
-    /*读取每一帧工作台的信息*/
-    for (int i = 0; i < wt_num; ++i){
-        int wtType;
-        double posX, posY;
-        int remainPdtFrame;     /*剩余生产帧数*/
-        unsigned int rawMaterialState;
-        unsigned int productState;
-
-        scanf("%d %lf %lf %d %d %d", &wtType, &posX, &posY, &remainPdtFrame,
-                                    &rawMaterialState, &productState);
-        map_set_wt_state(i, wtType, posX, posY, 
-                            remainPdtFrame, rawMaterialState, productState);
-    }
-
-    /*读取每一帧的机器人信息*/
-    for (int i = 0; i < map_get_rbt_num(); ++i){
-        int inWhichWt;  /*所处工作台*/
-        int carryItmType;/*携带物品类型*/
-        double timeValueFactor; /*时间价值系数*/
-        double collisionValueFactor;    /*碰撞价值系数*/
-        double angleSpeed;          /*角速度*/
-        double lineSpeedX, lineSpeedY;  /*线速度*/
-        double direction;   /*朝向*/
-        double posX, posY;  /*坐标*/
-        
-        scanf("%d %d %lf %lf %lf %lf %lf %lf %lf %lf",
-                        &inWhichWt, &carryItmType,
-                        &timeValueFactor, &collisionValueFactor, 
-                        &angleSpeed, &lineSpeedX, &lineSpeedY,&direction,
-                        &posX, &posY);
-        map_set_rbt_state(i, inWhichWt, carryItmType,
-                        timeValueFactor, collisionValueFactor,
-                        angleSpeed, lineSpeedX, lineSpeedY,direction,
-                        posX, posY);
-    }
-
-    /*剩余数据*/
-    while (fgets(line, sizeof line, stdin)) {
-        if (line[0] == 'O' && line[1] == 'K') {
-            return 0;
-        }
-    }
-    
-    LOG_RED("ret err!\n");
-    return ALGO1_RET_ERR;
-}
-
-int algo1_run(int frameId, int money){
+int algo1_run(void){
     int availableRbtNum = algo1_rbt_get_available_num();
 
     /*没有空闲机器人直接返回*/
@@ -745,33 +676,15 @@ int algo1_run(int frameId, int money){
             return 0;
         }
 
-        //not use
-        #if 0
-        for (int pdt = 0; pdt < src_pdt_num; ++pdt){
-            src_wt = algo1_pool_get_product(src_level, pdt);
-            dest_wt = algo1_dest_wt_get_available(dest_level, src_wt);
-
-            if (NULL != dest_wt){
-                int rbtId = algo1_rbt_get_available();
-                algo1_rbt_add_task(rbtId, src_wt, dest_wt);
-               // algo1_pool_remove_product(src_level, pdt);
-                /*更新目标目标收购平台状态*/
-                algo1_dest_wt_update_state();
-                --availableRbtNum;
-                if (0 == availableRbtNum){
-                    return 0;
-                }
-            }
-        }
-        #endif
         /*todo: 由于9号工作台也可以收购物品，所以也处理一下*/
     }
 }
 
 
 
-int algo1_send_control_frame(int frameID){
+int algo1_send_control_frame(void){
 
+    int frameID = algo_get_frameId();
     /*发送帧序号*/
     printf("%d\n", frameID);
 
@@ -845,27 +758,7 @@ int algo1_send_control_frame(int frameID){
         }
         }
 
-        #if 0
-        if (map_rbt_has_product(rbtId)){
-            if (inWorkTable != rbt_stat->task.dest_wt_id){
-                algo1_rbt_go_point(rbtId, rbt_stat->task.dest_x,
-                                      rbt_stat->task.dest_y);
-            } else {
-                command_rbt_sell(rbtId);
-                /*todo: 丢帧的情况下，sell会失败，会有bug*/
-                rbt_stat->state = ALGO1_RBT_STATE_AVAILABLE;
-            }
-        }else{
-            if (inWorkTable != rbt_stat->task.start_wt_id){
-                algo1_rbt_go_point(rbtId, rbt_stat->task.start_x,
-                                      rbt_stat->task.start_y);
-            } else {
-                /*同理丢帧的情况下buy可能会失败*/
-                command_rbt_buy(rbtId);
-            }
-        }
-        #endif
-    }
+   }
 
     command_ok();
     command_send();
