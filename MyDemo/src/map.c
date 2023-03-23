@@ -314,6 +314,19 @@ int map_get_rbt_in_which_wt(int rbtId){
     return g_rbt[rbtId].in_which_working_table;
 }
 
+double map_get_rbt_radius(int rbtId){
+    if (rbtId >= g_rbt_num){
+        LOG_RED("(rbtId >= g_rbt_num)");
+        return ROBOT_IN_NONE_WORKING_TABLE;
+    }
+
+    if (PRODUCT_TYPE_NONE == g_rbt[rbtId].carry_item_type){
+        return ROBOT_CARRY_NONE_RADIUS;
+    } else {
+        return ROBOT_CARRY_RADIUS;
+    }
+}
+
 bool map_unkown_prodcut(int product_type){
     switch (product_type){
         case PRODUCT_TYPE_1:

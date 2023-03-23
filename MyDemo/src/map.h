@@ -17,7 +17,10 @@
 #define ROBOT_IN_NONE_WORKING_TABLE     (-1)
 
 
+#define FRAME_INTVAL        (0.02)  /*帧间隔为 20ms */
 
+#define ROBOT_CARRY_RADIUS  (0.53)  /*机器人携带物品半径*/
+#define ROBOT_CARRY_NONE_RADIUS (0.45)  /*机器人未携带物品半径*/
 
 struct working_table{
     double pos_x;
@@ -72,6 +75,7 @@ bool map_check_vality_between_node(const struct working_table *start,
 bool map_rbt_has_product(int rbtId);
 bool map_wt_has_product(int wtId);
 int map_get_rbt_in_which_wt(int rbtId);
+double map_get_rbt_radius(int rbtId);
 bool map_unkown_prodcut(int product_type);
 void map_set_raw_material_state(unsigned int * state, int product_type);
 bool map_has_raw_material(unsigned int state, int pdt);

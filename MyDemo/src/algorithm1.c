@@ -20,9 +20,17 @@
 
 #if ALGO1_EN
 
+//#define INFINITY (-log(0)) /*定义正无限大的浮点数*/
+#define MY_INFINITY (10000000.0) /*定义正无限大的浮点数*/
+
+
 unsigned int g_frameId;
 unsigned int g_money;
 
+#define RUN_TIME (3*60*50)  /*比赛用时 帧数*/
+static unsigned int algo1_get_remain_frame(void){
+    return RUN_TIME - g_frameId;
+}
 
 /*算法1的算法执行*/
 /*赛区初赛规则：
@@ -62,9 +70,18 @@ static struct task_edge g_task_edge[MAX_ROBOT_NUM] = {0};
 #define ALGO1_RBT_STATE_BUSY        (1) /*在路上奔波*/
 #define ALGO1_RBT_STATE_SELLING     (3) /*正在售卖*/
 #define ALGO1_RBT_STATE_BUYING     (4) /*正在购买*/
+
+struct algo1_rbt_motion_command{
+    bool valid_flag; /*valid_flag为true的时候才会设置机器人的运动*/
+    double c_flag;  /*c_flag >= 0, 代表设置逆时针转动的角速度*/
+    double angleSpeed;
+    double lineSpeed;
+};
 struct algo1_robot_state{
     struct task_edge task;
+    struct algo1_rbt_motion_command motion_scmd;
     int state;  /*表示机器人当前的任务状态, 0表示可用，1表示正在运输货物*/
+    
 };
 
 static struct algo1_robot_state g_algo1_rbt_state[MAX_ROBOT_NUM];
@@ -128,7 +145,143 @@ static void algo1_rbt_add_task(int rbtId,
 }
 
 
-/*需要实现带有避免碰撞的运动*/
+
+/*rbtId会在 (centerx, centery)发生碰撞*/
+static void algo1_rbt_crash_set_motion_cmd(int rbtId,
+                        double center_x, double center_y){
+    struct algo1_robot_state * state = algo1_rbt_get_state(rbtId);
+//    return ;
+    LOG_BLUE("setting rbt %d around crash point (%f, %f)\n",
+                rbtId, center_x, center_y);
+    
+    state->motion_scmd.valid_flag = true;
+
+    state->motion_scmd.lineSpeed = 2.0;
+    state->motion_scmd.c_flag = -(state->motion_scmd.c_flag);
+    state->motion_scmd.angleSpeed = PI;
+    
+    return ;
+}
+
+
+/*todo:目前只根据云速直线运动近似出坐标点，后面再适配曲线运动计算坐标点*/
+static void algo1_rbt_get_pos_on_frame(int rbtId, int frame,
+            double * x, double *y){
+    const struct robot * pRbt = map_get_rbt(rbtId);
+    struct algo1_robot_state * stat = algo1_rbt_get_state(rbtId);
+
+    if (0 == frame){
+        *x = pRbt->pos_x;
+        *y = pRbt->pos_y;
+        return ;
+    }
+
+    double speed_x = pRbt->line_speed_x;
+    double speed_y = pRbt->line_speed_y;
+    double angle_speed = pRbt->angle_speed;
+
+    double delta_t = frame * FRAME_INTVAL;
+
+    if (stat->motion_scmd.valid_flag){
+        double speed_now = util_distance(speed_x, speed_y, 0, 0);
+        double speed_setting = stat->motion_scmd.lineSpeed;
+
+        double rate;
+        if (0 == speed_now){
+            rate = 0.1;
+        } else {
+            rate = speed_setting / speed_now;
+        }
+
+        speed_x = speed_x * rate;
+        speed_y = speed_y * rate;
+    }
+
+    *x = pRbt->pos_x + speed_x * delta_t;
+    *y = pRbt->pos_y + speed_y * delta_t;
+}
+
+
+/*检测未来10帧内，两个机器人是否会发生碰撞*/
+static bool algo1_rbt_check_crash2(int rbt1, int rbt2, 
+                      double * crash_x, double *crash_y){
+    for (int frame = 1; frame <= 3; ++frame){
+        double x1, y1, x2, y2;
+        algo1_rbt_get_pos_on_frame(rbt1, frame, &x1, &y1);
+        algo1_rbt_get_pos_on_frame(rbt2, frame, &x2, &y2);
+
+        double distance = util_distance(x1, y1, x2, y2);
+        if (distance < map_get_rbt_radius(rbt1)
+                + map_get_rbt_radius(rbt2))
+        {
+            *crash_x = (x1 + x2) / 2;
+            *crash_y = (y1 + y2) / 2;
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+/*避免碰撞算法
+    1. 检测当前运动状态和要下达的指令，检测是否会发生碰撞
+    2. 会发生碰撞---下达以碰撞点为中心做圆周运动的指令
+       不会碰撞 ----- 原来的指令*/
+static void algo1_rbt_check_crash(void){
+    /*c_flag >= 0, 代表设置逆时针转动的角速度*/
+
+    /*记录每个机器人的最快发生的碰撞点
+    ，flag为true代表会发生碰撞*/
+    double crash_point_x[MAX_ROBOT_NUM];
+    double crash_point_y[MAX_ROBOT_NUM];
+    bool crash_flag[MAX_ROBOT_NUM];
+
+    int crash_rbt[MAX_ROBOT_NUM];   /*记录rbt会和哪个rbt相撞*/
+
+    for (int rbtId = 0; rbtId < map_get_rbt_num(); ++rbtId){
+        crash_flag[rbtId] = false;
+        crash_rbt[rbtId] = -1;
+    }
+
+    for (int rbtId = 0; rbtId < map_get_rbt_num(); ++rbtId){
+        /*记录当前的rbt发生的碰撞点*/
+        double _x;
+        double _y;
+        double distance = MY_INFINITY;
+        for (int rbtId1 = 0; rbtId1 < map_get_rbt_num(); ++rbtId1){
+            if (rbtId == rbtId1){
+                continue;
+            }
+            
+            if (algo1_rbt_check_crash2(rbtId, rbtId1, 
+                        &_x, &_y)){
+                crash_flag[rbtId] = true;
+                double rbt_x = map_get_rbt(rbtId)->pos_x;
+                double rbt_y = map_get_rbt(rbtId)->pos_y;
+                double _distance = util_distance(rbt_x, rbt_y, _x, _y);
+                if (_distance < distance){
+                    distance = _distance;
+                    crash_point_x[rbtId] = _x;
+                    crash_point_y[rbtId] = _y;
+                    crash_rbt[rbtId] = rbtId1;
+                }
+            }
+        }
+    }
+
+    /*根据碰撞点重新设置指令--下达让*/
+    for (int rbtId = 0; rbtId < map_get_rbt_num(); ++rbtId){
+        if (true != crash_flag[rbtId]){
+            continue;
+        }
+
+        algo1_rbt_crash_set_motion_cmd(rbtId, 
+                        crash_point_x[rbtId],
+                        crash_point_y[rbtId]);
+    }
+
+}
+
 static void algo1_rbt_go_point(int rbtId, double x, double y){
     const struct robot * rbt = map_get_rbt(rbtId);
 
@@ -153,12 +306,6 @@ static void algo1_rbt_go_point(int rbtId, double x, double y){
 
     double angleSpeed = angle/0.015;
 
-    if (flag >=0 ){
-        command_rbt_rotate_anticlockwise(rbtId, angleSpeed);
-    } else {
-        command_rbt_rotate_clockwise(rbtId, angleSpeed);
-    }
-
     double linespeed = 0.1;
 
     /*距离越近速度越慢,每一帧的间隔是15ms即0.015s*/
@@ -168,8 +315,13 @@ static void algo1_rbt_go_point(int rbtId, double x, double y){
         MAX_ROBOT_FORWARD_SPEED : MAX_ROBOT_FORWARD_SPEED/2;
 
     linespeed = (angle > PI/2) ? (MAX_ROBOT_FORWARD_SPEED/3) : linespeed;
-    
-    command_rbt_forward(rbtId, linespeed);
+
+    struct algo1_robot_state * rbt_stat = 
+            algo1_rbt_get_state(rbtId);
+    rbt_stat->motion_scmd.valid_flag = true;
+    rbt_stat->motion_scmd.c_flag = flag;
+    rbt_stat->motion_scmd.angleSpeed = angleSpeed;
+    rbt_stat->motion_scmd.lineSpeed = linespeed;
 }
 #define LEVEL_UNKOWN    (-1)
 #define LEVEL_0     (0)
@@ -544,8 +696,6 @@ static const struct working_table * algo1_dest_wt_get_available
     return NULL;
 }
 
-//#define INFINITY (-log(0)) /*定义正无限大的浮点数*/
-#define MY_INFINITY (10000000.0) /*定义正无限大的浮点数*/
 
 double algo1_dest_pool_calc_distacne(int rbtId, 
         const struct working_table * src,
@@ -778,6 +928,7 @@ int algo1_send_control_frame(int frameID){
     for (int rbtId = 0; rbtId < map_get_rbt_num(); ++rbtId){
         struct algo1_robot_state * rbt_stat = 
             algo1_rbt_get_state(rbtId);
+        rbt_stat->motion_scmd.valid_flag = false;
         if (ALGO1_RBT_STATE_AVAILABLE == rbt_stat->state){
             LOG_RED("continue\n");
             continue;
@@ -802,7 +953,9 @@ int algo1_send_control_frame(int frameID){
                     algo1_rbt_go_point(rbtId, rbt_stat->task.start_x,
                                       rbt_stat->task.start_y);
                 } else {
-                    command_rbt_buy(rbtId);
+                    if (algo1_get_remain_frame() >= 50){
+                        command_rbt_buy(rbtId);
+                    }
                     rbt_stat->state = ALGO1_RBT_STATE_BUYING;
                 }
             }
@@ -834,7 +987,9 @@ int algo1_send_control_frame(int frameID){
                 algo1_rbt_go_point(rbtId, rbt_stat->task.start_x,
                                   rbt_stat->task.start_y);
             } else {
-                command_rbt_buy(rbtId);
+                if (algo1_get_remain_frame() >= 50){
+                    command_rbt_buy(rbtId);
+                }
             }
             break;
         }
@@ -844,29 +999,33 @@ int algo1_send_control_frame(int frameID){
             break;
         }
         }
-
-        #if 0
-        if (map_rbt_has_product(rbtId)){
-            if (inWorkTable != rbt_stat->task.dest_wt_id){
-                algo1_rbt_go_point(rbtId, rbt_stat->task.dest_x,
-                                      rbt_stat->task.dest_y);
-            } else {
-                command_rbt_sell(rbtId);
-                /*todo: 丢帧的情况下，sell会失败，会有bug*/
-                rbt_stat->state = ALGO1_RBT_STATE_AVAILABLE;
-            }
-        }else{
-            if (inWorkTable != rbt_stat->task.start_wt_id){
-                algo1_rbt_go_point(rbtId, rbt_stat->task.start_x,
-                                      rbt_stat->task.start_y);
-            } else {
-                /*同理丢帧的情况下buy可能会失败*/
-                command_rbt_buy(rbtId);
-            }
-        }
-        #endif
     }
 
+    /*碰撞检测与避免*/
+   // algo1_rbt_check_crash();
+
+    /*发送运动命令*/
+    for (int rbtId = 0; rbtId < map_get_rbt_num(); ++rbtId){
+        struct algo1_robot_state * rbt_stat = 
+                    algo1_rbt_get_state(rbtId);
+
+        if (true != rbt_stat->motion_scmd.valid_flag){
+            continue;
+        }
+    
+        double flag = rbt_stat->motion_scmd.c_flag;
+        double angleSpeed = rbt_stat->motion_scmd.angleSpeed;
+        double linespeed = rbt_stat->motion_scmd.lineSpeed;
+
+        if (flag >= 0 ){
+            command_rbt_rotate_anticlockwise(rbtId, angleSpeed);
+        } else {
+            command_rbt_rotate_clockwise(rbtId, angleSpeed);
+        }
+        
+        command_rbt_forward(rbtId, linespeed);
+    }
+    
     command_ok();
     command_send();
 
