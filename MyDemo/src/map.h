@@ -79,4 +79,5 @@ double map_get_rbt_radius(int rbtId);
 bool map_unkown_prodcut(int product_type);
 void map_set_raw_material_state(unsigned int * state, int product_type);
 bool map_has_raw_material(unsigned int state, int pdt);
+int map_get_mapId(void);
 #endif

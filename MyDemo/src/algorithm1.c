@@ -156,8 +156,9 @@ static void algo1_rbt_crash_set_motion_cmd(int rbtId,
     
     state->motion_scmd.valid_flag = true;
 
-    state->motion_scmd.lineSpeed = 2.0;
-    state->motion_scmd.c_flag = -(state->motion_scmd.c_flag);
+    state->motion_scmd.lineSpeed = 6;
+   // state->motion_scmd.c_flag = -(state->motion_scmd.c_flag);
+    state->motion_scmd.c_flag = -1;
     state->motion_scmd.angleSpeed = PI;
     
     return ;
@@ -205,7 +206,7 @@ static void algo1_rbt_get_pos_on_frame(int rbtId, int frame,
 /*检测未来10帧内，两个机器人是否会发生碰撞*/
 static bool algo1_rbt_check_crash2(int rbt1, int rbt2, 
                       double * crash_x, double *crash_y){
-    for (int frame = 1; frame <= 3; ++frame){
+    for (int frame = 1; frame <= 25; ++frame){
         double x1, y1, x2, y2;
         algo1_rbt_get_pos_on_frame(rbt1, frame, &x1, &y1);
         algo1_rbt_get_pos_on_frame(rbt2, frame, &x2, &y2);
@@ -314,7 +315,11 @@ static void algo1_rbt_go_point(int rbtId, double x, double y){
     linespeed = (dist > 2.0)? 
         MAX_ROBOT_FORWARD_SPEED : MAX_ROBOT_FORWARD_SPEED/2;
 
-    linespeed = (angle > PI/2) ? (MAX_ROBOT_FORWARD_SPEED/3) : linespeed;
+    if (4 == map_get_mapId()){
+        linespeed = (angle > PI/2) ? (MAX_ROBOT_FORWARD_SPEED/3) : linespeed;
+    } else {
+        linespeed = (angle > PI/2) ? (0) : linespeed;
+    }
 
     struct algo1_robot_state * rbt_stat = 
             algo1_rbt_get_state(rbtId);
@@ -360,7 +365,7 @@ static int algo1_get_level(const struct working_table *p){
         }
         default:{
             level = LEVEL_UNKOWN;
-            LOG_RED("ERROR: level unkown\n");
+           // LOG_RED("ERROR: level unkown\n");
             break;
         }
     }
@@ -445,8 +450,14 @@ static int algo1_pool_push_product(int wtId){
             continue;
         }
 
-        if (state->task.start_wt_id == wtId &&
-                !map_rbt_has_product(rbtId)){
+        bool flag;
+        if (4 != map_get_mapId()){
+            flag = (!map_rbt_has_product(rbtId));
+        } else {
+            flag = true;
+        }
+        
+        if (state->task.start_wt_id == wtId && flag){
                 /*之前分数
                 {"status":"Successful","score":818099}
 {"status":"Successful","score":673736}
@@ -1012,7 +1023,11 @@ int algo1_send_control_frame(int frameID){
     }
 
     /*碰撞检测与避免*/
-   // algo1_rbt_check_crash();
+    if (1 == map_get_mapId()){
+        algo1_rbt_check_crash();
+    } else {
+        // do nothing;
+    }
 
     /*发送运动命令*/
     for (int rbtId = 0; rbtId < map_get_rbt_num(); ++rbtId){

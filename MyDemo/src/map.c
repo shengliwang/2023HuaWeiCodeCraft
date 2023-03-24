@@ -15,6 +15,8 @@
 static double g_map_width = 0;
 static double g_map_height = 0;
 
+static int g_mapId = 0;
+
 static struct working_table g_wt[MAX_WORKING_TABLE_NUM];
 static struct robot g_rbt[MAX_ROBOT_NUM];
 
@@ -101,6 +103,19 @@ int map_init(void){
 
             for (int i  = 0; i < g_rbt_num; ++i){
                 g_rbt[i].pos_y = g_map_height - g_rbt[i].pos_y;
+            }
+
+            if (43 == g_wt_num){
+                g_mapId = 1;
+            } else if (25 == g_wt_num){
+                g_mapId = 2;
+            } else if (50 == g_wt_num){
+                g_mapId = 3;
+            } else if (18 == g_wt_num){
+                g_mapId = 4;
+            } else {
+                LOG_RED("error map\n");
+                exit(1);
             }
             return 0;
         }
@@ -357,4 +372,8 @@ void map_set_raw_material_state(
 /*有对应产品，返回 true,否则返回false*/
 bool map_has_raw_material(unsigned int state, int pdt){
     return !!(state & ((unsigned int)1 << pdt));
+}
+
+int map_get_mapId(void){
+    return g_mapId;
 }
