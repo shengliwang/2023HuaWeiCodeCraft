@@ -438,15 +438,44 @@ static int algo1_pool_push_product(int wtId){
     /*TODO：需要判断更复杂的情况，如任务线上的产品已经购买过了，
     此时产生的新产品应该是可以加入到产品池的*/
     /*检查是否在其他机器人的任务线上,如果是，则直接返回即可*/
+    /*检查是否有机器人的目标工作台是生产工作台*/
     for (int rbtId = 0; rbtId < map_get_rbt_num();++rbtId){
         struct algo1_robot_state * state = algo1_rbt_get_state(rbtId);
         if (ALGO1_RBT_STATE_AVAILABLE == state->state){
             continue;
         }
 
-        if (state->task.start_wt_id == wtId){
+        if (state->task.start_wt_id == wtId &&
+                !map_rbt_has_product(rbtId)){
+                /*之前分数
+                {"status":"Successful","score":818099}
+{"status":"Successful","score":673736}
+{"status":"Successful","score":501270}
+{"status":"Successful","score":660838}
+TOTAL:818099+673736+501270+660838=2653943
+*/
+                /*{"status":"Successful","score":761764}
+            {"status":"Successful","score":678227}
+            {"status":"Successful","score":536501}
+            {"status":"Successful","score":553722}
+            TOTAL:761764+678227+536501+553722=2530214
+                添加判断后的分数*/
             return 0;
         }
+#if 1
+        int dest_level = algo1_get_level(map_get_wt(state->task.dest_wt_id));
+        if (state->task.dest_wt_id == wtId &&
+            (LEVEL_1 == dest_level || LEVEL_2 == dest_level)){
+            return 0;
+            /*添加之后的分数：
+            {"status":"Successful","score":836085}
+{"status":"Successful","score":691370}
+{"status":"Successful","score":524600}
+{"status":"Successful","score":666254}
+TOTAL:836085+691370+524600+666254=2718309
+*/
+        }
+#endif
     }
     
     if (!map_wt_has_product(wtId)){
@@ -870,7 +899,6 @@ int algo1_run(int frameId, int money){
         }
 
         /*改进： 根据机器人去选工作台，所有的距离都算出来，选择最短的...*/
-
         for (int rbtId = 0; rbtId < map_get_rbt_num(); ++rbtId){
             struct algo1_robot_state * state = 
                 algo1_rbt_get_state(rbtId);
@@ -896,24 +924,6 @@ int algo1_run(int frameId, int money){
         }
 
         //not use
-        #if 0
-        for (int pdt = 0; pdt < src_pdt_num; ++pdt){
-            src_wt = algo1_pool_get_product(src_level, pdt);
-            dest_wt = algo1_dest_wt_get_available(dest_level, src_wt);
-
-            if (NULL != dest_wt){
-                int rbtId = algo1_rbt_get_available();
-                algo1_rbt_add_task(rbtId, src_wt, dest_wt);
-               // algo1_pool_remove_product(src_level, pdt);
-                /*更新目标目标收购平台状态*/
-                algo1_dest_wt_update_state();
-                --availableRbtNum;
-                if (0 == availableRbtNum){
-                    return 0;
-                }
-            }
-        }
-        #endif
         /*todo: 由于9号工作台也可以收购物品，所以也处理一下*/
     }
 }

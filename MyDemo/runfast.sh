@@ -1,6 +1,7 @@
 #!/bin/bash
 
 ROOT=..
+MAP=./pre_official_map
 
 pushd ${ROOT}
 
@@ -14,6 +15,6 @@ if [ ${LOG_ON} -ne 0 ]; then
 	gnome-terminal --command="tail -f ${LOG_FILE}" --hide-menubar
 fi
 
-./Robot ./MyDemo/build/main -m ./maps/1.txt -f
+./Robot ./MyDemo/build/main -m ${MAP}/1.txt -f
 
 popd
