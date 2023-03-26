@@ -317,9 +317,12 @@ static void algo1_rbt_go_point(int rbtId, double x, double y){
 
     if (4 == map_get_mapId()){
         linespeed = (angle > PI/2) ? (MAX_ROBOT_FORWARD_SPEED/3) : linespeed;
+    } else if (1 == map_get_mapId()){
+        linespeed = (dist > 2.0) ? MAX_ROBOT_FORWARD_SPEED: PI*dist;
     } else {
         linespeed = (angle > PI/2) ? (0) : linespeed;
     }
+
 
     struct algo1_robot_state * rbt_stat = 
             algo1_rbt_get_state(rbtId);
@@ -431,7 +434,7 @@ static const struct working_table * algo1_pool_get_product(int level, int pdtId)
         }
     }
 
-    LOG_RED("not found\n"); /*一定是能找到的，如果执行到这里，则说明错误*/
+    LOG_RED("not found, id=%d, level%d\n", pdtId, level); /*一定是能找到的，如果执行到这里，则说明错误*/
     return NULL;
 }
 
@@ -451,7 +454,13 @@ static int algo1_pool_push_product(int wtId){
         }
 
         bool flag;
-        if (4 != map_get_mapId()){
+        if (4 == map_get_mapId()){
+            flag = true;
+        } else if (3 == map_get_mapId()) {
+            flag = (!map_rbt_has_product(rbtId));
+        } else if (2 == map_get_mapId()){
+            flag = true;
+        } else if (1 == map_get_mapId()){
             flag = (!map_rbt_has_product(rbtId));
         } else {
             flag = true;
@@ -473,6 +482,7 @@ TOTAL:818099+673736+501270+660838=2653943
                 添加判断后的分数*/
             return 0;
         }
+
 #if 1
         int dest_level = algo1_get_level(map_get_wt(state->task.dest_wt_id));
         if (state->task.dest_wt_id == wtId &&
@@ -645,6 +655,96 @@ static bool algo1_dest_src_match(int src_type, int dest_type){
     return flag;
 }
 
+
+/*临时算法，注意后期版本删除:
+删除地图中多余的工作台，不作为目标工作台*/
+static bool algo1_dest_wt_should_konck_out(int wtId){
+    const struct working_table * wt = map_get_wt(wtId);
+    if (1 == map_get_mapId()){
+        switch(wt->type){
+            case PRODUCT_TYPE_4:{
+                /*4号工作台，只保留19,27,36*/
+                if (19 != wtId && 27 != wtId){
+                    return true;
+                }
+                break;
+            }
+            case PRODUCT_TYPE_5:{
+                /*5号工作台，只保留8,9,13*/
+                if (8 != wtId && 9 != wtId){
+                    return true;
+                }
+                break;
+            }
+            case PRODUCT_TYPE_6:{
+                /*6号工作台，只保留25,33,40*/
+                if (25 != wtId){
+                    return true;
+                }
+                break;
+            }
+            case PRODUCT_TYPE_7:{
+                /*7号工作台只保留 10 和 23 , 12, 21收物品*/
+                if (10 != wtId && 23 != wtId){
+                    return true;
+                }
+                break;
+            }
+            default:{
+                return false;
+            }
+        }
+    }
+    else if (2 == map_get_mapId()){
+        switch(wt->type){
+            case PRODUCT_TYPE_5:{
+                /*1, 23号保留*/
+                if (1 != wtId && 23 != wtId){
+                    return true;
+                }
+                break;
+            }
+            case PRODUCT_TYPE_6:{
+                /*0, 22 保留*/
+            #if 0
+                if (0 != wtId && 22 != wtId){
+                    return true;
+                }
+            #endif
+                break;
+            }
+            default:{
+                return false;
+            }
+        }
+    }
+    else if (3 == map_get_mapId()){
+        return false;
+        switch(wt->type){
+            case PRODUCT_TYPE_4:{
+                return true;
+                break;
+            }
+            case PRODUCT_TYPE_5:{
+                /*只保留 4， 5号工作台*/
+                if (4 != wtId && 5 != wtId){
+                    return true;
+                }
+                break;
+            }
+            case PRODUCT_TYPE_6:{
+                /*11, 23,32 号保留*/
+                if (11 != wtId && 23 != wtId && 32 != wtId){
+                    return true;
+                }
+                break;
+            }
+        }
+    }
+
+    return false;
+}
+
 /*在level级别中，求出src能送出的dest的个数*/
 static int algo1_dest_wt_get_available_num
 ( int level, const struct working_table * src){
@@ -662,6 +762,14 @@ static int algo1_dest_wt_get_available_num
         if (!algo1_dest_src_match(src->type, wt->type)){
             continue;
         }
+
+        if (1 == map_get_mapId() ||
+            2 == map_get_mapId() ||
+            3 == map_get_mapId()){
+            if (algo1_dest_wt_should_konck_out(wtId)){
+                continue;
+            }
+        }
         
         struct algo1_dest_table_state * state = 
             algo1_dest_wt_get_state(wtId);
@@ -676,12 +784,24 @@ static int algo1_dest_wt_get_available_num
         num += 1;
     }
 
-    for (int wtId = 0; wtId < map_get_wt_num(); ++wtId){
-        if (9 == map_get_wt(wtId)->type){
-            num += 1;
+    if (1 == map_get_mapId()){
+        // 不卖给9号工作台
+    } else if (-1 == map_get_mapId()){
+        if (map_wt_has_product(4) || map_wt_has_product(5) ||
+            map_wt_has_product(11) || map_wt_has_product(23) ||map_wt_has_product(32)){
+            for (int wtId = 0; wtId < map_get_wt_num(); ++wtId){
+                if (9 == map_get_wt(wtId)->type){
+                    num += 1;
+                }
+            }
+        }
+    } else {
+        for (int wtId = 0; wtId < map_get_wt_num(); ++wtId){
+            if (9 == map_get_wt(wtId)->type){
+                num += 1;
+            }
         }
     }
-
     return num;
 }
 
@@ -703,6 +823,15 @@ static const struct working_table * algo1_dest_wt_get_available
         if (!algo1_dest_src_match(src->type, wt->type)){
             continue;
         }
+
+        if (1 == map_get_mapId() ||
+            2 == map_get_mapId() ||
+            3 == map_get_mapId()){
+            if (algo1_dest_wt_should_konck_out(wtId)){
+                continue;
+            }
+        }
+
         
         struct algo1_dest_table_state * state = 
             algo1_dest_wt_get_state(wtId);
@@ -721,12 +850,28 @@ static const struct working_table * algo1_dest_wt_get_available
         }
     }
 
-    for (int wtId = 0; wtId < map_get_wt_num(); ++wtId){
-        const struct working_table * wt = map_get_wt(wtId);
-        if (9 == wt->type){
-            id += 1;
-            if (id == dest_id){
-                return wt;
+    if (1 == map_get_mapId()){
+        // 不卖给9号工作台
+    } else if (-1 == map_get_mapId()){
+        if (map_wt_has_product(4) || map_wt_has_product(5) ||
+            map_wt_has_product(11) || map_wt_has_product(23) ||map_wt_has_product(32)){
+        for (int wtId = 0; wtId < map_get_wt_num(); ++wtId){
+            const struct working_table * wt = map_get_wt(wtId);
+            if (9 == wt->type){
+                id += 1;
+                if (id == dest_id){
+                    return wt;
+                }
+            }
+        }}
+    } else {
+        for (int wtId = 0; wtId < map_get_wt_num(); ++wtId){
+            const struct working_table * wt = map_get_wt(wtId);
+            if (9 == wt->type){
+                id += 1;
+                if (id == dest_id){
+                    return wt;
+                }
             }
         }
     }
@@ -909,6 +1054,48 @@ int algo1_run(int frameId, int money){
             continue;
         }
 
+        if (4 == map_get_mapId() && LEVEL_0 == src_level){
+            if (!map_wt_has_product(17)){
+                dest_wt = map_get_wt(17);
+                for (int rbtId = 0; rbtId < map_get_rbt_num(); ++rbtId){
+                    struct algo1_robot_state * state = 
+                        algo1_rbt_get_state(rbtId);
+                    if (ALGO1_RBT_STATE_AVAILABLE != state->state){
+                        continue;
+                    }
+
+                    int pdt_num = algo1_pool_get_product_num(src_level);
+                    LOG_BLUE("pdt_num=%d\n", pdt_num);
+                    for (int pdt = 0; pdt < pdt_num-1; ++pdt){
+                        src_wt = algo1_pool_get_product(src_level, pdt);
+                        struct algo1_dest_table_state * dest_state =
+                            algo1_dest_wt_get_state(17);
+
+                        if (!algo1_dest_src_match(src_wt->type, dest_wt->type)){
+                            continue;
+                        }
+
+                        unsigned int rawMaterialStat = dest_state->algo1RawMaterialState;
+
+                        if (map_has_raw_material(rawMaterialStat, src_wt->type)){
+                            continue;
+                        }
+
+                        algo1_rbt_add_task(rbtId, src_wt, dest_wt);
+
+                        algo1_pool_update();    /*更新产品池*/
+                        algo1_dest_wt_update_state();   /*更新目标工作台*/
+                        if (0 == algo1_rbt_get_available_num()){
+                            return 0;
+                        }
+                    }
+
+                }
+
+                
+            }
+        }
+
         /*改进： 根据机器人去选工作台，所有的距离都算出来，选择最短的...*/
         for (int rbtId = 0; rbtId < map_get_rbt_num(); ++rbtId){
             struct algo1_robot_state * state = 
@@ -1025,8 +1212,13 @@ int algo1_send_control_frame(int frameID){
     /*碰撞检测与避免*/
     if (1 == map_get_mapId()){
         algo1_rbt_check_crash();
+    } else if (2 == map_get_mapId()) {
+       // algo1_rbt_check_crash();
+    } else if (3 == map_get_mapId()) {
+       // algo1_rbt_check_crash();
+        // do nothing.
     } else {
-        // do nothing;
+        // do nothing.
     }
 
     /*发送运动命令*/
